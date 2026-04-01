@@ -1,0 +1,177 @@
+================================================================================
+                  SALE MARKING AUTOMATION - SETUP INSTRUCTIONS
+================================================================================
+
+PROJECT STATUS: ✅ READY TO USE
+
+================================================================================
+QUICK START
+================================================================================
+
+1. START THE APPLICATION
+   $ cd /home/dinesh/Documents/sale-marking-automation
+   $ java -jar target/sale-marking-automation-1.0.0.jar
+
+   OR (for background execution):
+   $ nohup java -jar target/sale-marking-automation-1.0.0.jar > server.log 2>&1 &
+
+2. OPEN IN BROWSER
+   Open: http://localhost:8080/
+
+3. ENTER CUSTOMER PHONE
+   - Search for a customer by phone number
+   - System will fetch customer details from CMS API
+
+4. SELECT PRODUCTS
+   - Choose products
+   - Enter quantities
+   - Select order type (daily, weekend, alternate, etc.)
+
+5. CLICK "PLACE ORDER & MARK SALE"
+   - System automatically executes 9-step workflow
+   - All database updates happen automatically
+   - No manual DBeaver operations needed!
+
+================================================================================
+REBUILD FROM SOURCE
+================================================================================
+
+$ mvn clean package -DskipTests
+
+This will:
+1. Clean previous build artifacts
+2. Compile all Java source files
+3. Create the JAR file: target/sale-marking-automation-1.0.0.jar
+
+================================================================================
+REQUIRED CONFIGURATION
+================================================================================
+
+Before using the system, update these files with real credentials:
+
+1. DATABASE CONNECTION
+   File: src/main/java/com/countrydelight/db/DatabaseUtil.java
+   
+   Update lines around line 20:
+   String DB_URL = "jdbc:mysql://your-server:3306/your_database";
+   String DB_USER = "your_username";
+   String DB_PASSWORD = "your_password";
+
+2. API TOKENS
+   File: src/main/java/com/countrydelight/api/ApiClient.java
+   
+   Update lines around line 5-6:
+   private final String AUTHORIZATION_TOKEN = "your_actual_token";
+   private final String API_KEY = "your_api_key";
+
+After updating, rebuild:
+$ mvn clean package -DskipTests
+
+================================================================================
+FILE STRUCTURE
+================================================================================
+
+src/main/java/com/countrydelight/
+├── SaleMarkingApplication.java          - Entry point
+├── api/ApiClient.java                   - REST API calls
+├── service/
+│   ├── CustomerSearchService.java       - Customer lookup
+│   ├── ProductService.java              - Product fetching
+│   └── SaleMarkingService.java          - Core workflow logic
+├── controller/
+│   ├── SaleMarkingController.java       - REST endpoints
+│   ├── CustomerController.java          - Customer endpoints
+│   └── ProductController.java           - Product endpoints
+├── db/DatabaseUtil.java                 - Database operations
+├── model/OrderRequest.java              - Request model
+└── config/WebConfig.java                - Web configuration
+
+src/main/resources/
+├── application.properties                - Spring Boot config
+├── static/index.html                    - Frontend UI
+└── templates/index.html                 - Backup copy
+
+pom.xml                                  - Maven configuration
+
+================================================================================
+TESTING THE API
+================================================================================
+
+Test Customer Search:
+$ curl "http://localhost:8080/api/customer/search?phone=9876543210"
+
+Test Product Fetching:
+$ curl "http://localhost:8080/api/product/get-products?customerId=9943824&cityId=21"
+
+Test Complete Workflow:
+$ curl -X POST "http://localhost:8080/api/order/place-and-mark" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customerId": "9943824",
+    "cityId": 21,
+    "latitude": 28.5,
+    "longitude": 77.0,
+    "products": [{"id": 1, "quantity": 2, "order_type": "daily"}]
+  }'
+
+================================================================================
+THE 9-STEP AUTOMATED WORKFLOW
+================================================================================
+
+1. Customer Validation      - Verify customer exists
+2. Place Order              - Call CMS API
+3. Generate Route Sheet     - Call Voice API  
+4. Fetch Route Sheet ID     - Query database
+5. Update Route Sheet Date  - Change to TODAY (AUTO)
+6. Update Order Date        - Change to TODAY (AUTO)
+7. Mark Sale                - Call Delivery API
+8. Insert Sales Records     - Batch insert with transactions
+9. Verify Operations        - Confirm database updates
+
+ALL AUTOMATED - NO MANUAL DBEAVER OPERATIONS!
+
+================================================================================
+CHECKING LOGS
+================================================================================
+
+View Live Logs:
+$ tail -f /home/dinesh/Documents/sale-marking-automation/server.log
+
+Find Errors:
+$ grep "ERROR" /home/dinesh/Documents/sale-marking-automation/server.log
+
+================================================================================
+STOPPING THE APPLICATION
+================================================================================
+
+Find the process:
+$ ps aux | grep java | grep sale-marking
+
+Stop the process by PID:
+$ kill -9 <PID>
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Q: Application won't start
+A: Check if port 8080 is in use
+
+Q: API returns 400 Bad Request
+A: Check authorization tokens are valid
+   Review server logs for details
+
+Q: Database operations not working
+A: Verify credentials in DatabaseUtil.java
+   Ensure tables exist with correct schema
+
+================================================================================
+VERSION INFORMATION
+================================================================================
+
+Spring Boot: 2.7.14 (LTS)
+Java: 11+ (tested with Java 21)
+Maven: 3.x
+Application Version: 1.0.0
+
+================================================================================

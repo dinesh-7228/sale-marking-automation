@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sale Marking Automation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .product-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .product-item {
+            background: white;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 2px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .product-item:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+
+        .product-item.selected {
+            background: #f0f4ff;
+            border-color: #667eea;
+        }
+
+        .product-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .product-info {
+            flex: 1;
+        }
+
+        .product-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .product-meta {
+            font-size: 12px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .quantity-input {
+            width: 70px;
+            padding: 6px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .order-type {
+            width: 100px;
+            padding: 6px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .alert {
+            padding: 16px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+        }
+
+        .selected-summary {
+            background: #f9f9f9;
+            padding: 16px;
+            border-radius: 6px;
+            margin-bottom: 24px;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        h3 {
+            margin-bottom: 12px;
+            color: #555;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Sale Marking Automation</h1>
+        </div>
+
+        <div class="content">
+            <div id="alertContainer"></div>
+
+            <!-- Step 1: Search Customer -->
+            <div id="customerSearch" class="form-section">
+                <h2>Step 1: Search Customer</h2>
+                <div class="form-group">
+                    <label>Mobile Number</label>
+                    <input type="text" id="phoneInput" placeholder="Enter customer phone number" maxlength="10">
+                </div>
+                <button class="btn-primary" onclick="searchCustomer()">Search Customer</button>
+
+                <div id="customerResults" style="margin-top: 20px; display: none;">
+                    <div class="product-list" id="customerList"></div>
+                </div>
+            </div>
+
+            <!-- Step 2: Select Products -->
+            <div id="productSelection" class="form-section" style="display: none;">
+                <h2>Step 2: Select Products</h2>
+                
+                <div class="selected-summary" id="customerSummary" style="display: none;">
+                    <div class="summary-item">
+                        <strong>Customer:</strong>
+                        <span id="summaryCustomerName"></span>
+                    </div>
+                    <div class="summary-item">
+                        <strong>City ID:</strong>
+                        <span id="summaryCityId"></span>
+                    </div>
+                </div>
+
+                <h3>Available Products</h3>
+                <div class="product-list" id="productList"></div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px;">
+                    <button class="btn-primary" onclick="backToSearch()" style="background: #e0e0e0; color: #333;">Back</button>
+                    <button class="btn-primary" onclick="proceedToOrder()">Proceed</button>
+                </div>
+            </div>
+
+            <!-- Step 3 & 4: Order Summary -->
+            <div id="orderCompletion" class="form-section" style="display: none;">
+                <h2>Step 3 & 4: Confirm & Mark Sale</h2>
+
+                <div class="selected-summary">
+                    <h3>Order Summary</h3>
+                    <div id="orderSummary"></div>
+                </div>
+
+                <button class="btn-primary" onclick="completeOrder()">Place Order & Mark Sale</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loadingModal" class="modal">
+        <div class="modal-content" style="text-align: center;">
+            <div class="spinner"></div>
+            <p id="loadingText">Processing...</p>
+        </div>
+    </div>
+
+    <script>
+        let selectedCustomer = null;
+        let selectedProducts = [];
+
+        function showAlert(message, type = 'info') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alertDiv);
+            setTimeout(() => alertDiv.remove(), 5000);
+        }
+
+        function showLoading(text = 'Processing...') {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loadingModal').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingModal').style.display = 'none';
+        }
+
+        async function searchCustomer() {
+            const phone = document.getElementById('phoneInput').value.trim();
+            if (!phone) {
+                showAlert('Please enter a phone number', 'error');
+                return;
+            }
+            showLoading('Searching customer...');
+            try {
+                const response = await fetch(`/api/customer/search?phone=${phone}`);
+                const data = await response.json();
+                hideLoading();
+                if (data.success && data.data.length > 0) {
+                    displayCustomers(data.data);
+                } else {
+                    showAlert('No customers found', 'warning');
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function displayCustomers(customers) {
+            const customerList = document.getElementById('customerList');
+            customerList.innerHTML = customers.map(c => `
+                <div class="product-item" onclick="selectCustomer({
+                    db_id: '${c.db_id}', 
+                    name: '${c.name}', 
+                    city_id: ${c.city_id},
+                    franchise_id: '${c.franchise_id || ''}'
+                })">
+                    <div style="flex: 1;">
+                        <div class="product-name">${c.name || 'Unknown'}</div>
+                        <div class="product-meta">Phone: ${c.phone} | DB ID: ${c.db_id}</div>
+                        <div class="product-meta">City: ${c.city_id || 'N/A'} | Franchise: ${c.franchise_id || 'Not Set'}</div>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('customerResults').style.display = 'block';
+        }
+
+        function selectCustomer(customer) {
+            if (!customer.city_id) {
+                showAlert('This customer has no city assigned', 'error');
+                return;
+            }
+            if (!customer.franchise_id) {
+                showAlert('Please update franchise information', 'warning');
+            }
+            selectedCustomer = customer;
+            document.getElementById('summaryCustomerName').textContent = customer.name;
+            document.getElementById('summaryCityId').textContent = customer.city_id;
+            document.getElementById('customerSummary').style.display = 'block';
+            document.getElementById('customerSearch').style.display = 'none';
+            document.getElementById('productSelection').style.display = 'block';
+            fetchProducts();
+        }
+
+        async function fetchProducts() {
+            showLoading('Fetching products...');
+            try {
+                const response = await fetch(`/api/product/fetch?customerId=${selectedCustomer.db_id}&cityId=${selectedCustomer.city_id}`);
+                const data = await response.json();
+                hideLoading();
+                if (data.success) {
+                    displayProducts(data.data);
+                } else {
+                    showAlert('No products available', 'warning');
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function displayProducts(products) {
+            const productList = document.getElementById('productList');
+            productList.innerHTML = products.map(p => `
+                <div class="product-item" id="prod-${p.id}">
+                    <input type="checkbox" class="product-checkbox" onchange="toggleProduct(this, ${p.id}, '${p.name}')">
+                    <div style="flex: 1;">
+                        <div class="product-name">${p.name}</div>
+                        <div class="product-meta">${p.description || ''}</div>
+                    </div>
+                    <input type="number" min="1" value="1" class="quantity-input" id="qty-${p.id}">
+                    <select class="order-type" id="type-${p.id}">
+                        <option>daily</option>
+                        <option>weekend</option>
+                        <option>alternate</option>
+                    </select>
+                </div>
+            `).join('');
+        }
+
+        function toggleProduct(checkbox, productId, productName) {
+            const qty = parseInt(document.getElementById(`qty-${productId}`).value);
+            const type = document.getElementById(`type-${productId}`).value;
+
+            if (checkbox.checked) {
+                selectedProducts.push({ id: productId, name: productName, quantity: qty, order_type: type });
+                document.getElementById(`prod-${productId}`).classList.add('selected');
+            } else {
+                selectedProducts = selectedProducts.filter(p => p.id !== productId);
+                document.getElementById(`prod-${productId}`).classList.remove('selected');
+            }
+        }
+
+        function proceedToOrder() {
+            if (selectedProducts.length === 0) {
+                showAlert('Please select at least one product', 'error');
+                return;
+            }
+            const summary = document.getElementById('orderSummary');
+            summary.innerHTML = selectedProducts.map(p => `
+                <div class="summary-item">
+                    <span>${p.name}</span>
+                    <span>Qty: ${p.quantity} | ${p.order_type}</span>
+                </div>
+            `).join('');
+            document.getElementById('productSelection').style.display = 'none';
+            document.getElementById('orderCompletion').style.display = 'block';
+        }
+
+        async function completeOrder() {
+            showLoading('Processing order...');
+            try {
+                const response = await fetch('/api/order/place-and-mark', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        customerId: selectedCustomer.db_id,
+                        customerName: selectedCustomer.name,
+                        cityId: selectedCustomer.city_id,
+                        latitude: null,
+                        longitude: null,
+                        products: selectedProducts
+                    })
+                });
+                const result = await response.json();
+                hideLoading();
+                if (result.success) {
+                    showAlert('✅ Sale marked successfully!', 'success');
+                    resetForm();
+                } else {
+                    showAlert(`Error: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function backToSearch() {
+            document.getElementById('productSelection').style.display = 'none';
+            document.getElementById('customerSearch').style.display = 'block';
+            selectedProducts = [];
+        }
+
+        function resetForm() {
+            document.getElementById('phoneInput').value = '';
+            document.getElementById('customerResults').style.display = 'none';
+            document.getElementById('orderCompletion').style.display = 'none';
+            document.getElementById('customerSearch').style.display = 'block';
+            selectedCustomer = null;
+            selectedProducts = [];
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('phoneInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') searchCustomer();
+            });
+        });
+    </script>
+</body>
+</html>

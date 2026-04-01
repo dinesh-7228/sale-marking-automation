@@ -1,0 +1,150 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║              DBEAVER - QUICK REFERENCE FOR DATABASE CHANGES                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📌 3 THINGS YOU NEED TO DO IN DBEAVER:
+
+1. UPDATE ROUTE SHEET DATE (Tomorrow → Today)
+2. UPDATE ORDER DETAIL DATE (Tomorrow → Today)  
+3. VERIFY SALES RECORDS WERE CREATED
+
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ QUICK COPY-PASTE COMMANDS:
+
+To update route sheet date:
+═════════════════════════════════════════════════════════════════════════════════
+UPDATE route_sheet_details 
+SET delivery_date = CURDATE() 
+WHERE customer_id = '9943824' 
+AND delivery_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY);
+═════════════════════════════════════════════════════════════════════════════════
+
+To update order detail date:
+═════════════════════════════════════════════════════════════════════════════════
+UPDATE order_detail 
+SET start_date = CURDATE() 
+WHERE customer_id = '9943824' 
+AND STATUS = 'Y' 
+AND start_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY);
+═════════════════════════════════════════════════════════════════════════════════
+
+To verify changes:
+═════════════════════════════════════════════════════════════════════════════════
+SELECT * FROM route_sheet_details 
+WHERE customer_id = '9943824' 
+AND delivery_date = CURDATE();
+
+SELECT * FROM order_detail 
+WHERE customer_id = '9943824' 
+AND STATUS = 'Y'
+AND start_date = CURDATE();
+
+SELECT * FROM sales_mark 
+ORDER BY created_date DESC LIMIT 20;
+═════════════════════════════════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════════════════════════════
+
+HOW TO USE DBEAVER:
+
+Step 1: Open DBeaver
+  → File → New Database Connection
+  → Select MySQL
+  → Enter your host, username, password
+  → Click Test Connection
+  → Click Finish
+
+Step 2: Open SQL Editor
+  → Right-click your connection
+  → Select SQL Editor → New SQL Script
+  → Paste one of the queries above
+  → Replace '9943824' with actual customer DB_ID
+  → Press Ctrl+Enter
+
+Step 3: View Results
+  → Check the "Result" tab
+  → Message shows "X row(s) updated"
+
+═══════════════════════════════════════════════════════════════════════════════
+
+⚠️ IMPORTANT RULES:
+
+✓ Always replace '9943824' with ACTUAL customer ID
+✓ Replace 'CURDATE()' if using GUI - use actual date (2026-04-01)
+✓ Always use WHERE clause (never UPDATE without it!)
+✓ Test with SELECT first before UPDATE
+✓ Verify results after each update
+
+═══════════════════════════════════════════════════════════════════════════════
+
+EXAMPLE WORKFLOW:
+
+1. Run SELECT first to check what will change:
+   SELECT * FROM route_sheet_details 
+   WHERE customer_id = '9943824'
+   AND delivery_date > CURDATE();
+
+2. If results look correct, run UPDATE:
+   UPDATE route_sheet_details 
+   SET delivery_date = CURDATE() 
+   WHERE customer_id = '9943824' 
+   AND delivery_date > CURDATE();
+
+3. Verify the update worked:
+   SELECT * FROM route_sheet_details 
+   WHERE customer_id = '9943824' 
+   AND delivery_date = CURDATE();
+
+4. Repeat for order_detail table
+
+═══════════════════════════════════════════════════════════════════════════════
+
+IF USING GUI INSTEAD OF SQL:
+
+1. Navigate to: beejapuri_QA → Tables → route_sheet_details
+2. Right-click → Open (or double-click)
+3. Find row with customer_id = '9943824'
+4. Double-click delivery_date cell
+5. Change date to today (2026-04-01)
+6. Press Enter
+7. Table auto-saves
+
+THEN DO SAME FOR order_detail TABLE
+
+═══════════════════════════════════════════════════════════════════════════════
+
+TROUBLESHOOTING:
+
+Can't connect?
+→ Check MySQL server is running
+→ Verify hostname: DB_HOST from your config
+→ Check username/password
+→ Check port 3306 is open
+
+Changes not showing?
+→ Right-click table → Refresh
+→ Press F5
+→ Close and reopen table
+→ Restart DBeaver
+
+Wrong records changed?
+→ UNDO: Ctrl+Z in DBeaver
+→ Or restore from backup
+→ Always use WHERE clause!
+
+═══════════════════════════════════════════════════════════════════════════════
+
+REMEMBER:
+
+TODAY = CURDATE() = Current system date
+TOMORROW = DATE_ADD(CURDATE(), INTERVAL 1 DAY) = Tomorrow's date
+
+When route sheet is generated, it's for TOMORROW.
+You need to change it to TODAY using CURDATE().
+
+Same for order_detail table - update start_date to CURDATE().
+
+═══════════════════════════════════════════════════════════════════════════════
+
+That's it! Just 3 SQL queries to manage. You've got this! 💪
