@@ -1,11 +1,13 @@
 package com.countrydelight.api;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import com.countrydelight.config.EnvironmentConfig;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -16,11 +18,21 @@ import java.io.*;
 @Component
 public class ApiClient {
 
-    private final String BASE_URL = "https://qa-cms.countrydelight.in";
-    private final String API_KEY = "uZ8Q7mKp2xVdL4tN9sFjR1cW6yH3bG0aT5qX8eM2nP7rL9kD4vB1zC6hJ0wY3fU_cd_membership";
-    
-    // Static JWT token from CMS (valid, provide by user)
-    private final String AUTHORIZATION_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIyNDA0IiwiaXNzIjoiQ291bnRyeURlbGlnaHQiLCJzdWIiOiJVc2VyIEF1dGhlbnRpY2F0aW9uIiwiaWF0IjoxNzc1MDIyNjc3LCJleHAiOjE3NzUwNTUwNzd9.Oauf8DmtZXAZjsgnodMZqfZdPLbnF1FaQVnSJyew4dk";
+    @Autowired
+    private EnvironmentConfig envConfig;
+
+    private String getBaseUrl() {
+        return envConfig.getApiBaseUrl();
+    }
+
+    private String getApiKey() {
+        return envConfig.getApiKey();
+    }
+
+    private String getAuthToken() {
+        return envConfig.getAuthToken();
+    }
+
 
     public String placeOrder(String customerId, List<Integer> productIds, List<Integer> qty, List<String> orderTypes) throws Exception {
         if (customerId == null || productIds == null || qty == null || productIds.size() != qty.size()) {
@@ -52,11 +64,11 @@ public class ApiClient {
         body.put("subscriptions", subscriptions);
 
         Response response = RestAssured.given()
-                .header("Authorization", "Bearer " + AUTHORIZATION_TOKEN)
+                .header("Authorization", "Bearer " + getAuthToken())
                 .header("accept", "application/json, text/plain, */*")
                 .contentType(ContentType.JSON)
                 .body(body)
-                .post(BASE_URL + "/admin/customers/v1/placeOrder");
+                .post(getBaseUrl() + "/admin/customers/v1/placeOrder");
 
         if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
             throw new RuntimeException("Order placement failed with status " + response.getStatusCode() + 
@@ -72,9 +84,9 @@ public class ApiClient {
         }
 
         Response response = RestAssured.given()
-                .header("X-Api-Key", API_KEY)
+                .header("X-Api-Key", getApiKey())
                 .header("accept", "application/json")
-                .post(BASE_URL + "/api/voice/generateRouteSheetByCustomerId?customerId=" + customerId);
+                .post(getBaseUrl() + "/api/voice/generateRouteSheetByCustomerId?customerId=" + customerId);
 
         if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
             throw new RuntimeException("Route sheet generation failed with status " + response.getStatusCode() + 
@@ -139,7 +151,7 @@ public class ApiClient {
         Response response = RestAssured.given()
                 .contentType(ContentType.JSON)
                 .body(finalBody)
-                .post(BASE_URL + "/api/delivery/sale_create");
+                .post(getBaseUrl() + "/api/delivery/sale_create");
 
         if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
             throw new RuntimeException("Sale marking failed with status " + response.getStatusCode() + 
@@ -156,14 +168,14 @@ public class ApiClient {
         }
 
         Response response = RestAssured.given()
-                .header("Authorization", "Bearer " + AUTHORIZATION_TOKEN)
+                .header("Authorization", "Bearer " + getAuthToken())
                 .header("accept", "application/json, text/plain, */*")
                 .queryParam("phone", phone)
                 .queryParam("pageNumber", 1)
                 .queryParam("pageSize", 25)
                 .queryParam("sortBy", "id")
                 .queryParam("sortDirection", 1)
-                .get(BASE_URL + "/admin/v1/customers/getCustomer");
+                .get(getBaseUrl() + "/admin/v1/customers/getCustomer");
 
         if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
             throw new RuntimeException("Customer search failed with status " + response.getStatusCode() + 
@@ -195,12 +207,12 @@ public class ApiClient {
         }
 
         Response response = RestAssured.given()
-                .header("Authorization", "Bearer " + AUTHORIZATION_TOKEN)
+                .header("Authorization", "Bearer " + getAuthToken())
                 .header("accept", "application/json, text/plain, */*")
                 .queryParam("customerId", customerId)
                 .queryParam("showOnlyCustomerVisible", true)
                 .queryParam("cityId", cityId)
-                .get(BASE_URL + "/admin/v1/products/fetchProducts/V2");
+                .get(getBaseUrl() + "/admin/v1/products/fetchProducts/V2");
 
         if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
             throw new RuntimeException("Product fetch failed with status " + response.getStatusCode() + 
@@ -240,9 +252,9 @@ public class ApiClient {
         }
 
         Response response = RestAssured.given()
-                .header("Authorization", "Bearer " + AUTHORIZATION_TOKEN)
+                .header("Authorization", "Bearer " + getAuthToken())
                 .header("accept", "application/json, text/plain, */*")
-                    .get(BASE_URL + "/admin/v1/customers/getCustomerDetails/" + db_id);
+                    .get(getBaseUrl() + "/admin/v1/customers/getCustomerDetails/" + db_id);
 
         if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
             throw new RuntimeException("Customer details fetch failed with status " + response.getStatusCode() + 

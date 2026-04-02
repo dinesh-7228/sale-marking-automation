@@ -42,7 +42,45 @@
             margin-bottom: 8px;
         }
 
-        .content {
+        .env-selector {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 12px 20px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 12px;
+            justify-content: center;
+        }
+
+        .env-selector label {
+            color: white;
+            font-weight: 600;
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .env-selector select {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            background: white;
+            color: #667eea;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .env-status {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
             padding: 40px;
         }
 
@@ -261,6 +299,14 @@
     <div class="container">
         <div class="header">
             <h1>🎯 Sale Marking Automation</h1>
+            <div class="env-selector">
+                <label for="envSelect">Environment:</label>
+                <select id="envSelect" onchange="switchEnvironment()">
+                    <option value="QA">QA</option>
+                    <option value="UAT">UAT</option>
+                </select>
+                <span class="env-status" id="envStatus">QA</span>
+            </div>
         </div>
 
         <div class="content">
@@ -329,6 +375,7 @@
     <script>
         let selectedCustomer = null;
         let selectedProducts = [];
+        let currentEnv = 'QA';
 
         function showAlert(message, type = 'info') {
             const alertContainer = document.getElementById('alertContainer');
@@ -347,6 +394,47 @@
 
         function hideLoading() {
             document.getElementById('loadingModal').style.display = 'none';
+        }
+
+        async function loadEnvironment() {
+            try {
+                const response = await fetch('/api/config/environment');
+                const data = await response.json();
+                if (data.success) {
+                    currentEnv = data.currentEnv;
+                    document.getElementById('envSelect').value = currentEnv;
+                    document.getElementById('envStatus').textContent = currentEnv;
+                }
+            } catch (error) {
+                console.error('Failed to load environment:', error);
+            }
+        }
+
+        async function switchEnvironment() {
+            const env = document.getElementById('envSelect').value;
+            showLoading(`Switching to ${env} environment...`);
+            
+            try {
+                const response = await fetch('/api/config/environment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ environment: env })
+                });
+                const data = await response.json();
+                hideLoading();
+                
+                if (data.success) {
+                    currentEnv = env;
+                    document.getElementById('envStatus').textContent = env;
+                    showAlert(`✓ Switched to ${env} environment`, 'success');
+                    console.log('API Base URL:', data.baseUrl);
+                } else {
+                    showAlert(`Error: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+            }
         }
 
         async function searchCustomer() {
@@ -473,7 +561,7 @@
         }
 
         async function completeOrder() {
-            showLoading('Processing order...');
+            showLoading('Processing order & marking sale...');
             try {
                 const response = await fetch('/api/order/place-and-mark', {
                     method: 'POST',
@@ -517,6 +605,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            loadEnvironment();
             document.getElementById('phoneInput').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') searchCustomer();
             });

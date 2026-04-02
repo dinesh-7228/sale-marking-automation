@@ -230,9 +230,10 @@ public class SaleMarkingService {
     }
 
     private void printWorkflowSummary(Map<String, Object> response, String customerId) {
-        System.out.println("\n" + "=".repeat(80));
+        String separator = "================================================================================";
+        System.out.println("\n" + separator);
         System.out.println("WORKFLOW SUMMARY - COMPLETE AUTOMATION");
-        System.out.println("=".repeat(80));
+        System.out.println(separator);
         System.out.println("Customer ID: " + customerId);
         System.out.println("Status: SUCCESS ✓");
         System.out.println("\nAutomated Operations:");
@@ -245,6 +246,6 @@ public class SaleMarkingService {
         System.out.println("  ✓ Sales records auto-inserted");
         System.out.println("  ✓ All operations verified");
         System.out.println("\nDatabase Operations: ALL AUTOMATIC - NO MANUAL EFFORT NEEDED!");
-        System.out.println("=".repeat(80) + "\n");
+        System.out.println(separator + "\n");
     }
 }

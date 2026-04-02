@@ -1,6 +1,9 @@
 package com.countrydelight.db;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
+import com.countrydelight.config.EnvironmentConfig;
 import java.sql.*;
 import java.util.*;
 import java.time.LocalDate;
@@ -9,11 +12,27 @@ import java.time.LocalDate;
 @Component
 public class DatabaseUtil {
 
+    @Autowired
+    private Environment env;
+
+    @Autowired
+    private EnvironmentConfig envConfig;
+
     private Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(
-                "jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/",
-                "dinesh",
-                "pjq4gry4ir6QSGh    ");
+        String dbHost = getEnvValue("DB_HOST", "non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com");
+        String dbPort = getEnvValue("DB_PORT", "3306");
+        String dbName = getEnvValue("DB_NAME", "");
+        String dbUser = getEnvValue("DB_USER", "dinesh");
+        String dbPassword = getEnvValue("DB_PASSWORD", "pjq4gry4ir6QSGh");
+
+        String url = "jdbc:mysql://" + dbHost + ":" + dbPort + "/" + dbName;
+        
+        return DriverManager.getConnection(url, dbUser, dbPassword);
+    }
+
+    private String getEnvValue(String key, String defaultValue) {
+        String value = env.getProperty(key);
+        return value != null && !value.isEmpty() ? value : defaultValue;
     }
 
     /**

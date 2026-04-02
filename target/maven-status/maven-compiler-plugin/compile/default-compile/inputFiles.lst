@@ -1,3 +1,4 @@
+/home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/controller/EnvironmentController.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/ProductService.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/api/ApiClient.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/db/DatabaseUtil.java
@@ -5,6 +6,7 @@
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/config/WebConfig.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/model/ProductRequest.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/controller/ProductController.java
+/home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/config/EnvironmentConfig.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/SaleMarkingApplication.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/config/JwtAuthenticationManager.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/CustomerSearchService.java
