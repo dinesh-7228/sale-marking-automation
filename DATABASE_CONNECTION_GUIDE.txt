@@ -1,0 +1,315 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║          DATABASE CONNECTION GUIDE - CONFIGURE YOUR DATABASE               ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+CURRENT PLACEHOLDER CREDENTIALS
+════════════════════════════════════════════════════════════════════════════
+
+File: src/main/java/com/countrydelight/db/DatabaseUtil.java
+Lines 12-15:
+  return DriverManager.getConnection(
+      "jdbc:mysql://DB_HOST:3306/beejapuri_QA",
+      "username",
+      "password");
+
+════════════════════════════════════════════════════════════════════════════
+INFORMATION NEEDED FROM YOU
+════════════════════════════════════════════════════════════════════════════
+
+To connect to your database, I need the following details:
+
+1️⃣  DATABASE HOST
+    Question: What is your MySQL server address?
+    Example: 192.168.1.100  OR  sql.example.com  OR  localhost
+    Default: localhost (if database is on same machine)
+
+2️⃣  DATABASE PORT
+    Question: What port does MySQL listen on?
+    Default: 3306
+    Other possibilities: 3307, 3308, etc.
+
+3️⃣  DATABASE NAME
+    Question: What is the name of your database?
+    Example: beejapuri_QA  OR  countrydelight  OR  sales_db
+    NOTE: This database must already exist
+
+4️⃣  DATABASE USERNAME
+    Question: What username does the application use?
+    Example: admin  OR  root  OR  cd_user
+
+5️⃣  DATABASE PASSWORD
+    Question: What is the password for that user?
+    Example: your_password_here
+    NOTE: Be careful to get this exactly right
+
+════════════════════════════════════════════════════════════════════════════
+EXAMPLE CONFIGURATIONS
+════════════════════════════════════════════════════════════════════════════
+
+EXAMPLE 1: Local MySQL (on your computer)
+  Host: localhost
+  Port: 3306
+  Database: beejapuri_QA
+  Username: root
+  Password: your_password
+
+EXAMPLE 2: Remote MySQL Server
+  Host: 192.168.1.100
+  Port: 3306
+  Database: countrydelight
+  Username: db_user
+  Password: secure_password123
+
+EXAMPLE 3: Cloud Database (AWS RDS)
+  Host: database-1.c1234567890.us-east-1.rds.amazonaws.com
+  Port: 3306
+  Database: sales
+  Username: admin
+  Password: RDSPassword123
+
+════════════════════════════════════════════════════════════════════════════
+HOW TO FIND YOUR DATABASE CREDENTIALS
+════════════════════════════════════════════════════════════════════════════
+
+Method 1: Ask Your Database Administrator
+  - They should provide you with:
+    ✓ Database host
+    ✓ Port number
+    ✓ Database name
+    ✓ Username
+    ✓ Password
+
+Method 2: Check Your Application Configuration
+  - Look for existing configuration files:
+    ✓ application.properties
+    ✓ application.yml
+    ✓ config.properties
+    ✓ settings.ini
+
+Method 3: Test Your Database Connection (Before Updating Code)
+  Using MySQL Command Line:
+    mysql -h 192.168.1.100 -u username -p
+    Password: (enter password)
+    
+  If connection succeeds, you have the right credentials!
+
+Method 4: Check Your DBeaver Configuration
+  - If you use DBeaver, your database connection is already configured there
+  - You can copy the credentials from DBeaver
+
+════════════════════════════════════════════════════════════════════════════
+STEP-BY-STEP: UPDATE DATABASE CREDENTIALS
+════════════════════════════════════════════════════════════════════════════
+
+STEP 1: Open the Database Configuration File
+  File: /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/db/DatabaseUtil.java
+  
+STEP 2: Find the getConnection() method (lines 11-16)
+  Current code:
+    private Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(
+                "jdbc:mysql://DB_HOST:3306/beejapuri_QA",
+                "username",
+                "password");
+    }
+
+STEP 3: Replace with YOUR credentials
+  Example:
+    private Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(
+                "jdbc:mysql://192.168.1.100:3306/beejapuri_QA",
+                "cd_user",
+                "my_secure_password");
+    }
+
+STEP 4: Save the file
+
+STEP 5: Rebuild the project
+  $ mvn clean package -DskipTests
+
+STEP 6: Test the connection
+  $ java -jar target/sale-marking-automation-1.0.0.jar
+
+════════════════════════════════════════════════════════════════════════════
+DATABASE REQUIREMENTS
+════════════════════════════════════════════════════════════════════════════
+
+The system needs the following tables in your database:
+
+1. CUSTOMERS TABLE
+   Structure needed:
+     ├─ id (INT, PRIMARY KEY)
+     ├─ name (VARCHAR)
+     ├─ phone (VARCHAR)
+     ├─ city_id (INT)
+     ├─ franchise_id (INT)
+     └─ Other customer fields
+
+   Used by: Customer search API
+   Query: SELECT * FROM customers WHERE phone = ?
+
+2. PRODUCTS TABLE
+   Structure needed:
+     ├─ id (INT, PRIMARY KEY)
+     ├─ name (VARCHAR)
+     ├─ city_id (INT) - for filtering
+     ├─ price (DECIMAL)
+     ├─ is_frozen (BOOLEAN)
+     ├─ is_packaging_required (BOOLEAN)
+     └─ order_types (VARCHAR) - daily, weekend, alternate
+
+   Used by: Product API
+   Query: SELECT * FROM products WHERE city_id = ? AND customer_visible = true
+
+3. ROUTE_SHEET_DETAILS TABLE
+   Structure needed:
+     ├─ id (INT, PRIMARY KEY)
+     ├─ customer_id (INT)
+     ├─ delivery_id (INT)
+     ├─ delivery_date (DATE) - UPDATED AUTOMATICALLY
+     └─ Other route sheet fields
+
+   Used by: Route sheet date update
+   Automatic Update: delivery_date = TODAY (if generated as TOMORROW)
+
+4. ORDER_DETAIL TABLE
+   Structure needed:
+     ├─ id (INT, PRIMARY KEY)
+     ├─ customer_id (INT)
+     ├─ start_date (DATE) - UPDATED AUTOMATICALLY
+     ├─ status (VARCHAR) - 'Y' for active
+     └─ Other order fields
+
+   Used by: Order date update
+   Automatic Update: start_date = TODAY (if generated as TOMORROW)
+
+5. SALES_RECORDS TABLE
+   Structure needed:
+     ├─ id (INT, PRIMARY KEY)
+     ├─ route_sheet_id (INT)
+     ├─ product_id (INT)
+     ├─ quantity (INT)
+     ├─ sold_date (DATE)
+     └─ Other sales fields
+
+   Used by: Sales record insertion
+   Automatic Insert: New sales records with transaction safety
+
+════════════════════════════════════════════════════════════════════════════
+HOW TO TEST THE DATABASE CONNECTION
+════════════════════════════════════════════════════════════════════════════
+
+After updating credentials and rebuilding:
+
+1. Start the server
+   $ java -jar target/sale-marking-automation-1.0.0.jar
+
+2. Watch the logs for connection success:
+   Look for messages like:
+   - "Connected to database"
+   - No "Connection refused" errors
+   - No "Access denied" errors
+
+3. Test the API endpoints:
+   
+   Test Customer Search:
+   $ curl "http://localhost:8080/api/customer/search?phone=9876543210"
+   
+   Should return customer data if phone exists in database
+   
+   Test Product Fetching:
+   $ curl "http://localhost:8080/api/product/get-products?customerId=9943824&cityId=21"
+   
+   Should return products for that customer and city
+
+4. Check the database logs:
+   If you get errors like:
+   - "Unknown database": Database name doesn't exist
+   - "Access denied": Wrong username/password
+   - "Connection refused": Host/port is wrong
+
+════════════════════════════════════════════════════════════════════════════
+SECURITY NOTES
+════════════════════════════════════════════════════════════════════════════
+
+⚠️  IMPORTANT SECURITY REMINDERS:
+
+1. DO NOT commit credentials to version control
+   - .gitignore the file or externalize credentials
+   - Use environment variables for production
+
+2. Use a dedicated database user (not root)
+   - Give minimum required permissions
+   - Example: SELECT, INSERT, UPDATE on specific tables only
+
+3. Protect the database password
+   - Use strong passwords
+   - Rotate credentials periodically
+   - Store securely (environment variables, config server)
+
+4. Production Setup (Recommended):
+   - Use Spring's application.properties with environment variables:
+     spring.datasource.url=jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+     spring.datasource.username=${DB_USER}
+     spring.datasource.password=${DB_PASS}
+   
+   - Set environment variables in your deployment:
+     export DB_HOST=your-production-host
+     export DB_USER=your-db-user
+     export DB_PASS=your-db-password
+
+════════════════════════════════════════════════════════════════════════════
+DEBUGGING CONNECTION ISSUES
+════════════════════════════════════════════════════════════════════════════
+
+Issue: "com.mysql.cj.jdbc.exceptions.CommunicationsException: 
+         Communications link failure"
+
+Solution:
+  1. Check if MySQL server is running
+  2. Verify host and port are correct
+  3. Check firewall allows connection to port 3306
+  4. Verify network connectivity to database server
+
+Issue: "Access denied for user 'username'@'host'"
+
+Solution:
+  1. Double-check username spelling
+  2. Double-check password spelling
+  3. Verify user has permission on the database
+  4. Reset password if forgotten
+
+Issue: "Unknown database 'beejapuri_QA'"
+
+Solution:
+  1. Verify database name spelling
+  2. Verify database exists: SHOW DATABASES;
+  3. Create database if needed: CREATE DATABASE beejapuri_QA;
+
+Issue: "Column 'X' doesn't exist in table 'Y'"
+
+Solution:
+  1. Verify table structure matches expected schema
+  2. Alter table to add missing columns
+  3. Check if column name is different (case sensitivity)
+
+════════════════════════════════════════════════════════════════════════════
+READY TO CONFIGURE?
+════════════════════════════════════════════════════════════════════════════
+
+Please provide me with:
+
+1. Database Host: ____________________
+2. Database Port: ____________________
+3. Database Name: ____________________
+4. Database Username: ____________________
+5. Database Password: ____________________
+
+Once you provide these details, I will:
+✓ Update the DatabaseUtil.java file
+✓ Rebuild the project
+✓ Test the connection
+✓ Show you how to query customers and products from your database
+✓ Configure the system to use your real data
+
+════════════════════════════════════════════════════════════════════════════

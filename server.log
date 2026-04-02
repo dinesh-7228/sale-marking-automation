@@ -1,0 +1,24 @@
+nohup: ignoring input
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::               (v2.7.14)
+
+2026-04-01 17:55:22.734  INFO 68583 --- [           main] c.countrydelight.SaleMarkingApplication  : Starting SaleMarkingApplication v1.0.0 using Java 21.0.10 on cd-admin-HP-EliteBook-845-14-inch-G9-Notebook-PC with PID 68583 (/home/dinesh/Documents/sale-marking-automation/target/sale-marking-automation-1.0.0.jar started by dinesh in /home/dinesh/Documents/sale-marking-automation)
+2026-04-01 17:55:22.737 DEBUG 68583 --- [           main] c.countrydelight.SaleMarkingApplication  : Running with Spring Boot v2.7.14, Spring v5.3.29
+2026-04-01 17:55:22.737  INFO 68583 --- [           main] c.countrydelight.SaleMarkingApplication  : No active profile set, falling back to 1 default profile: "default"
+2026-04-01 17:55:23.825  INFO 68583 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 6000 (http)
+2026-04-01 17:55:23.837  INFO 68583 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-04-01 17:55:23.837  INFO 68583 --- [           main] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.78]
+2026-04-01 17:55:23.902  INFO 68583 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-04-01 17:55:23.902  INFO 68583 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 940 ms
+2026-04-01 17:55:24.113  INFO 68583 --- [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
+2026-04-01 17:55:24.234  INFO 68583 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 6000 (http) with context path ''
+2026-04-01 17:55:24.245  INFO 68583 --- [           main] c.countrydelight.SaleMarkingApplication  : Started SaleMarkingApplication in 2.012 seconds (JVM running for 2.356)
+2026-04-01 17:55:27.923  INFO 68583 --- [nio-6000-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-04-01 17:55:27.923  INFO 68583 --- [nio-6000-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-04-01 17:55:27.924  INFO 68583 --- [nio-6000-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
