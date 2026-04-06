@@ -1,0 +1,287 @@
+================================================================================
+INTERACTIVE WORKFLOW API - ENDPOINTS SUMMARY
+================================================================================
+
+BASE URL: http://localhost:8080/api/workflow
+
+================================================================================
+STEP-BY-STEP FLOW ENDPOINTS
+================================================================================
+
+STEP 1: SELECT ENVIRONMENT
+  POST /step1-environment
+  Body: {"environment": "QA" | "UAT"}
+  Response: Confirmation message
+
+STEP 2: ENTER CUSTOMER NUMBER
+  POST /step2-customer-number
+  Body: {"customerNumber": "PHONE"}
+  Response: Confirmation message
+
+STEP 3: SEARCH CUSTOMER
+  POST /step3-search-customer
+  Body: (empty)
+  Response: List of matching customers
+
+STEP 4: GET CUSTOMER DETAILS
+  POST /step4-customer-details
+  Body: {"customerId": "ID"}
+  Response: Customer details with city_id, franchise_id
+
+STEP 5: CHECK ORDER STATUS
+  POST /step5-check-order-status
+  Body: {"orderAlreadyPlaced": true | false}
+  Response: 
+    - If false: Available products list
+    - If true: Skip message (go to step 8)
+
+STEP 6: SELECT PRODUCTS & PLACE ORDER
+  POST /step6-place-order
+  Body: {
+    "products": [
+      {
+        "id": NUMBER,
+        "quantity": NUMBER,
+        "order_type": "daily" | "weekly" | "monthly"
+      }
+    ]
+  }
+  Response: Order confirmation
+
+STEP 8: GENERATE ROUTE SHEET
+  POST /step8-generate-route-sheet
+  Body: (empty)
+  Response: routeSheetId and details
+
+STEP 9: UPDATE ROUTE SHEET DATE
+  POST /step9-update-route-sheet-date
+  Body: (empty)
+  Response: Confirmation (date changed to TODAY)
+
+STEP 10: UPDATE ORDER DETAILS DATE
+  POST /step10-update-order-date
+  Body: (empty)
+  Response: Confirmation (date changed to TODAY)
+
+STEP 11: MARK THE SALE
+  POST /step11-mark-sale
+  Body: {
+    "latitude": OPTIONAL NUMBER,
+    "longitude": OPTIONAL NUMBER
+  }
+  Response: Sale marked confirmation
+
+================================================================================
+COMPLETE WORKFLOW (ALL-IN-ONE)
+================================================================================
+
+COMPLETE WORKFLOW
+  POST /complete
+  Body: {
+    "environment": "QA" | "UAT",
+    "customerNumber": "PHONE",
+    "customerId": "ID",
+    "orderAlreadyPlaced": true | false,
+    "products": [
+      {
+        "id": NUMBER,
+        "quantity": NUMBER,
+        "order_type": "daily"
+      }
+    ],
+    "latitude": OPTIONAL NUMBER,
+    "longitude": OPTIONAL NUMBER
+  }
+  Response: Complete workflow result with all steps
+
+================================================================================
+UTILITY ENDPOINTS
+================================================================================
+
+GET WORKFLOW STATE
+  GET /state
+  Body: (empty)
+  Response: Current workflow state
+
+RESET WORKFLOW
+  POST /reset
+  Body: (empty)
+  Response: Confirmation (state reset)
+
+================================================================================
+RESPONSE FORMAT
+================================================================================
+
+SUCCESS RESPONSE:
+{
+  "success": true,
+  "message": "Description of action",
+  "data": { ... },
+  "nextStep": "Next action to take"
+}
+
+ERROR RESPONSE:
+{
+  "success": false,
+  "message": "Error description"
+}
+
+================================================================================
+QUICK CURL EXAMPLES
+================================================================================
+
+1. COMPLETE WORKFLOW (RECOMMENDED)
+curl -X POST http://localhost:8080/api/workflow/complete \
+  -H "Content-Type: application/json" \
+  -d '{
+    "environment": "QA",
+    "customerNumber": "9876543210",
+    "customerId": "12345",
+    "orderAlreadyPlaced": false,
+    "products": [{"id": 114, "quantity": 2}]
+  }'
+
+2. STEP 1: ENVIRONMENT
+curl -X POST http://localhost:8080/api/workflow/step1-environment \
+  -H "Content-Type: application/json" \
+  -d '{"environment":"QA"}'
+
+3. STEP 3: SEARCH CUSTOMER
+curl -X POST http://localhost:8080/api/workflow/step3-search-customer \
+  -H "Content-Type: application/json"
+
+4. GET WORKFLOW STATE
+curl http://localhost:8080/api/workflow/state
+
+5. RESET WORKFLOW
+curl -X POST http://localhost:8080/api/workflow/reset \
+  -H "Content-Type: application/json"
+
+================================================================================
+WORKFLOW SCENARIOS
+================================================================================
+
+SCENARIO 1: ORDER NEEDS TO BE PLACED
+  orderAlreadyPlaced: false
+  Flow: Steps 1-2-3-4-5(fetch products)-6-8-9-10-11
+  Duration: Full process
+
+SCENARIO 2: ORDER ALREADY EXISTS
+  orderAlreadyPlaced: true
+  Flow: Steps 1-2-3-4-5(skip 6)-8-9-10-11
+  Duration: Shorter (skips product selection & order placement)
+
+SCENARIO 3: SINGLE API CALL
+  Use /complete endpoint with all parameters
+  Duration: Instant (no sequential calls needed)
+
+================================================================================
+KEY FEATURES
+================================================================================
+
+✓ 11-step automated workflow
+✓ Conditional logic (skip if order already placed)
+✓ State management between steps
+✓ Automatic database date updates
+✓ Two usage modes (step-by-step + complete)
+✓ Smart defaults (latitude, longitude, order type)
+✓ Comprehensive error handling
+✓ API integration for all external services
+✓ Both interactive and batch processing
+
+================================================================================
+DATABASE UPDATES (AUTOMATIC)
+================================================================================
+
+STEP 9: Route Sheet Date
+  - Table: route_sheet_details
+  - Changes: Tomorrow → Today
+
+STEP 10: Order Details Date
+  - Table: order_details
+  - Field: order_start_date
+  - Changes: Tomorrow → Today
+
+After Sale Marking: Sales Records
+  - Automatic insertion of sales data
+  - No manual intervention needed
+
+================================================================================
+CONFIGURATION
+================================================================================
+
+No additional configuration needed. Uses existing:
+- EnvironmentConfig: API URLs, authentication
+- ApiClient: HTTP client and API calls
+- DatabaseUtil: Database operations
+
+================================================================================
+BUILD & DEPLOYMENT
+================================================================================
+
+BUILD: mvn clean package -DskipTests
+OUTPUT: target/sale-marking-automation-1.0.0.jar
+SIZE: ~32 MB
+STATUS: ✅ SUCCESSFUL
+
+RUN: java -jar target/sale-marking-automation-1.0.0.jar
+PORT: 8080 (default)
+CONTEXT: /api/workflow
+
+================================================================================
+TESTING
+================================================================================
+
+Test Step 1:
+  curl -X POST http://localhost:8080/api/workflow/step1-environment \
+    -H "Content-Type: application/json" \
+    -d '{"environment":"QA"}'
+
+Test Complete Workflow:
+  See QUICK CURL EXAMPLES section above
+
+Check State:
+  curl http://localhost:8080/api/workflow/state
+
+Reset:
+  curl -X POST http://localhost:8080/api/workflow/reset
+
+================================================================================
+DOCUMENTATION
+================================================================================
+
+DETAILED GUIDE: INTERACTIVE_WORKFLOW_GUIDE.md
+  - Complete API reference
+  - Request/response formats
+  - Usage patterns
+  - Examples
+
+IMPLEMENTATION: INTERACTIVE_WORKFLOW_IMPLEMENTATION.md
+  - What was changed
+  - Feature overview
+  - Integration details
+
+QUICK REFERENCE: WORKFLOW_QUICK_REFERENCE.md
+  - API summary
+  - Common scenarios
+  - Field reference
+
+SUMMARY: INTERACTIVE_WORKFLOW_SUMMARY.md
+  - Executive overview
+  - Complete implementation details
+  - Build status
+
+================================================================================
+SUPPORT
+================================================================================
+
+For issues or questions:
+1. Check INTERACTIVE_WORKFLOW_GUIDE.md for API details
+2. Review WORKFLOW_QUICK_REFERENCE.md for examples
+3. See INTERACTIVE_WORKFLOW_IMPLEMENTATION.md for technical details
+
+================================================================================
+LAST UPDATED: 2026-04-06
+STATUS: ✅ READY FOR DEPLOYMENT
+VERSION: 1.0.0
+================================================================================
