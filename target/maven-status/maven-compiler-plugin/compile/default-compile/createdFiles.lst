@@ -1,9 +1,12 @@
 com/countrydelight/config/WebConfig.class
 com/countrydelight/config/EnvironmentConfig.class
 com/countrydelight/controller/ProductController.class
+com/countrydelight/controller/InteractiveWorkflowController.class
+com/countrydelight/model/WorkflowRequest.class
 com/countrydelight/controller/CustomerController.class
 com/countrydelight/config/EnvironmentConfig$DatabaseConfig.class
 com/countrydelight/controller/EnvironmentController.class
+com/countrydelight/service/InteractiveWorkflowService.class
 com/countrydelight/service/ProductService.class
 com/countrydelight/SaleMarkingApplication.class
 com/countrydelight/config/JwtAuthenticationManager.class
