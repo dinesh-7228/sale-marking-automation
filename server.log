@@ -184,3 +184,8 @@ java.lang.RuntimeException: Customer details fetch failed with status 502: <html
 </body>
 </html>
 
+🔍 Searching customer by phone: 9310352764
+⚠️  Real API authentication failed. Switching to mock mode for development/testing...
+✗ Customer search failed: Mock implementation removed. Use real CMS API endpoint.
+🔍 Searching customer by phone: 9310352764
+✗ Customer search failed: Mock implementation removed. Use real CMS API endpoint.
