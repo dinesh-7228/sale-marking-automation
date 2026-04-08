@@ -19,20 +19,36 @@ public class DatabaseUtil {
     private EnvironmentConfig envConfig;
 
     private Connection getConnection() throws SQLException {
-        String dbHost = getEnvValue("DB_HOST", "non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com");
-        String dbPort = getEnvValue("DB_PORT", "3306");
-        String dbName = getEnvValue("DB_NAME", "beejapuri_QA");
-        String dbUser = getEnvValue("DB_USER", "dinesh");
-        String dbPassword = getEnvValue("DB_PASSWORD", "pjq4gry4ir6QSGh");
+        String dbHost = getEnvValue("db.host", "non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com");
+        String dbPort = getEnvValue("db.port", "3306");
+        String dbName = getEnvValue("db.name", "beejapuri_QA");
+        String dbUser = getEnvValue("db.user", "dinesh");
+        String dbPassword = getEnvValue("db.password", "pjq4gry4ir6QSGh");
 
         String url = "jdbc:mysql://" + dbHost + ":" + dbPort + "/" + dbName;
+        System.out.println("🔌 Database Connection URL: " + url);
         
         return DriverManager.getConnection(url, dbUser, dbPassword);
     }
 
     private String getEnvValue(String key, String defaultValue) {
-        String value = env.getProperty(key);
-        return value != null && !value.isEmpty() ? value : defaultValue;
+        // Try from environment first
+        String envValue = System.getenv(key.replace(".", "_").toUpperCase());
+        if (envValue != null && !envValue.isEmpty()) {
+            System.out.println("✓ Using environment variable: " + key + " = " + envValue);
+            return envValue;
+        }
+        
+        // Try from Spring properties
+        String propValue = env.getProperty(key);
+        if (propValue != null && !propValue.isEmpty()) {
+            System.out.println("✓ Using Spring property: " + key + " = " + propValue);
+            return propValue;
+        }
+        
+        // Use default
+        System.out.println("ℹ Using default for " + key + ": " + defaultValue);
+        return defaultValue;
     }
 
     /**
