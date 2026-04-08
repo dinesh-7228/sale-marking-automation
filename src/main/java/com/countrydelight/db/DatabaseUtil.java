@@ -43,8 +43,8 @@ public class DatabaseUtil {
      */
     public void updateRouteSheetDate(String customerId) throws Exception {
         // Try with delivery_date column first (current implementation)
-        String query = "UPDATE route_sheet_details SET delivery_date = CURDATE() " +
-                       "WHERE customer_id = ? AND delivery_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
+        String query = "UPDATE route_sheet_details SET date = CURDATE() " +
+                       "WHERE customer_id = ? AND date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
 
         try (Connection con = getConnection();
              PreparedStatement ps = con.prepareStatement(query)) {
@@ -103,8 +103,8 @@ public class DatabaseUtil {
      */
     public void updateOrderDetailDate(String customerId) throws Exception {
         // Try with start_date column first (current implementation)
-        String query = "UPDATE order_detail SET start_date = CURDATE() " +
-                       "WHERE customer_id = ? AND STATUS = 'Y' AND start_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
+        String query = "UPDATE order_detail SET order_start_date = CURDATE() " +
+                       "WHERE customer_id = ? AND STATUS = 'Y' AND order_start_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
 
         try (Connection con = getConnection();
              PreparedStatement ps = con.prepareStatement(query)) {

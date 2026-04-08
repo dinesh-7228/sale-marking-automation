@@ -133,12 +133,12 @@ public class SaleMarkingController {
             System.out.println("\n>>> Searching customer by phone: " + phone);
             List<Map<String, Object>> customers = service.searchCustomerByPhone(phone);
             
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "count", customers.size(),
-                "data", customers,
-                "message", "✓ Customer search completed"
-            ));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("count", customers.size());
+            response.put("data", customers);
+            response.put("message", "✓ Customer search completed");
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             System.out.println("❌ Error searching customer: " + e.getMessage());
             e.printStackTrace();
