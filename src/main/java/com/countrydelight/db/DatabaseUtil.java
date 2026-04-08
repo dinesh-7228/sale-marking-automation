@@ -21,7 +21,7 @@ public class DatabaseUtil {
     private Connection getConnection() throws SQLException {
         String dbHost = getEnvValue("DB_HOST", "non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com");
         String dbPort = getEnvValue("DB_PORT", "3306");
-        String dbName = getEnvValue("DB_NAME", "");
+        String dbName = getEnvValue("DB_NAME", "beejapuri_QA");
         String dbUser = getEnvValue("DB_USER", "dinesh");
         String dbPassword = getEnvValue("DB_PASSWORD", "pjq4gry4ir6QSGh");
 
@@ -348,5 +348,139 @@ public class DatabaseUtil {
         }
         
         return verification;
+    }
+
+    /**
+     * Search customer by primary contact number (mobile number)
+     * Returns list of matching customers with their details
+     */
+    public List<Map<String, Object>> searchCustomerByPhone(String phoneNumber) throws Exception {
+        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
+            throw new IllegalArgumentException("Phone number cannot be empty");
+        }
+
+        String query = "SELECT * FROM customer c WHERE c.PRIMARY_CONTACT_NUMBER = ?";
+        List<Map<String, Object>> customers = new ArrayList<>();
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+
+            ps.setString(1, phoneNumber);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                Map<String, Object> customer = new HashMap<>();
+                
+                // Extract all columns from result set
+                ResultSetMetaData metaData = rs.getMetaData();
+                int columnCount = metaData.getColumnCount();
+                
+                for (int i = 1; i <= columnCount; i++) {
+                    String columnName = metaData.getColumnName(i);
+                    customer.put(columnName, rs.getObject(i));
+                }
+                
+                customers.add(customer);
+            }
+
+            if (!customers.isEmpty()) {
+                System.out.println("✓ Found " + customers.size() + " customer(s) for phone: " + phoneNumber);
+            } else {
+                System.out.println("⚠ No customers found for phone: " + phoneNumber);
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to search customer by phone " + phoneNumber + 
+                                     ": " + e.getMessage(), e);
+        }
+
+        return customers;
+    }
+
+    /**
+     * Fetch customer attributes by customer ID
+     * Returns list of attributes for the given customer
+     */
+    public List<Map<String, Object>> getCustomerAttributes(String customerId) throws Exception {
+        if (customerId == null || customerId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Customer ID cannot be empty");
+        }
+
+        String query = "SELECT * FROM customer_attributes ca WHERE ca.CUSTOMER = ?";
+        List<Map<String, Object>> attributes = new ArrayList<>();
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+
+            ps.setString(1, customerId);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                Map<String, Object> attribute = new HashMap<>();
+                
+                // Extract all columns from result set
+                ResultSetMetaData metaData = rs.getMetaData();
+                int columnCount = metaData.getColumnCount();
+                
+                for (int i = 1; i <= columnCount; i++) {
+                    String columnName = metaData.getColumnName(i);
+                    attribute.put(columnName, rs.getObject(i));
+                }
+                
+                attributes.add(attribute);
+            }
+
+            if (!attributes.isEmpty()) {
+                System.out.println("✓ Found " + attributes.size() + " attribute(s) for customer: " + customerId);
+            } else {
+                System.out.println("⚠ No attributes found for customer: " + customerId);
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to fetch customer attributes for customer " + customerId + 
+                                     ": " + e.getMessage(), e);
+        }
+
+        return attributes;
+    }
+
+    /**
+     * Fetch complete customer details including address and franchise info
+     * Used for customer validation
+     */
+    public Map<String, Object> getCustomerDetailsFromDb(String customerId) throws Exception {
+        if (customerId == null || customerId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Customer ID cannot be empty");
+        }
+
+        String query = "SELECT * FROM customer WHERE ID = ?";
+        Map<String, Object> customerDetails = new HashMap<>();
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+
+            ps.setString(1, customerId);
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                ResultSetMetaData metaData = rs.getMetaData();
+                int columnCount = metaData.getColumnCount();
+                
+                for (int i = 1; i <= columnCount; i++) {
+                    String columnName = metaData.getColumnName(i);
+                    customerDetails.put(columnName, rs.getObject(i));
+                }
+                
+                System.out.println("✓ Customer details retrieved for ID: " + customerId);
+            } else {
+                System.out.println("⚠ No customer found with ID: " + customerId);
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to fetch customer details for ID " + customerId + 
+                                     ": " + e.getMessage(), e);
+        }
+
+        return customerDetails;
     }
 }
