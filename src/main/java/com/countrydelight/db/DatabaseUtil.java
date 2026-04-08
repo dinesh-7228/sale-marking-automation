@@ -38,8 +38,11 @@ public class DatabaseUtil {
     /**
      * Automatically updates route sheet date from tomorrow to today
      * Called immediately after route sheet generation
+     * 
+     * Note: Handles both 'delivery_date' and 'DATE' column names
      */
     public void updateRouteSheetDate(String customerId) throws Exception {
+        // Try with delivery_date column first (current implementation)
         String query = "UPDATE route_sheet_details SET delivery_date = CURDATE() " +
                        "WHERE customer_id = ? AND delivery_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
 
@@ -55,16 +58,51 @@ public class DatabaseUtil {
                 System.out.println("⚠ No route sheet found for date correction. Customer: " + customerId);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("CRITICAL: Failed to update route sheet date for customer " + customerId + 
-                                     ": " + e.getMessage(), e);
+            // If column not found, try alternative column name
+            if (e.getMessage() != null && (e.getMessage().contains("Unknown column") || 
+                e.getMessage().contains("no such column"))) {
+                System.out.println("⚠ Column 'delivery_date' not found, trying 'DATE'...");
+                tryAlternativeUpdateRouteSheetDate(customerId);
+            } else {
+                throw new RuntimeException("CRITICAL: Failed to update route sheet date for customer " + customerId + 
+                                         ": " + e.getMessage(), e);
+            }
+        }
+    }
+
+    /**
+     * Alternative: Updates route sheet date using 'DATE' column
+     */
+    private void tryAlternativeUpdateRouteSheetDate(String customerId) throws Exception {
+        String query = "UPDATE route_sheet_details SET `DATE` = CURDATE() " +
+                       "WHERE customer = ? AND `DATE` = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+
+            ps.setString(1, customerId);
+            int rowsUpdated = ps.executeUpdate();
+            
+            if (rowsUpdated > 0) {
+                System.out.println("✓ Route sheet DATE updated to TODAY for customer: " + customerId);
+            } else {
+                System.out.println("⚠ No route sheet found for alternative date correction. Customer: " + customerId);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to update route sheet date (both attempts) for customer " + 
+                                     customerId + ": " + e.getMessage(), e);
         }
     }
 
     /**
      * Automatically updates order detail start date from tomorrow to today
      * Called immediately after order placement
+     * 
+     * Handles the requirement: ORDER_START_DATE - INTERVAL 1 DAY
+     * Also handles both 'start_date' and 'ORDER_START_DATE' column names
      */
     public void updateOrderDetailDate(String customerId) throws Exception {
+        // Try with start_date column first (current implementation)
         String query = "UPDATE order_detail SET start_date = CURDATE() " +
                        "WHERE customer_id = ? AND STATUS = 'Y' AND start_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
 
@@ -80,8 +118,43 @@ public class DatabaseUtil {
                 System.out.println("⚠ No active orders found for date correction. Customer: " + customerId);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("CRITICAL: Failed to update order detail date for customer " + customerId + 
-                                     ": " + e.getMessage(), e);
+            // If column not found, try alternative column name
+            if (e.getMessage() != null && (e.getMessage().contains("Unknown column") || 
+                e.getMessage().contains("no such column"))) {
+                System.out.println("⚠ Column 'start_date' not found, trying 'ORDER_START_DATE'...");
+                tryAlternativeUpdateOrderDetailDate(customerId);
+            } else {
+                throw new RuntimeException("CRITICAL: Failed to update order detail date for customer " + customerId + 
+                                         ": " + e.getMessage(), e);
+            }
+        }
+    }
+
+    /**
+     * Alternative: Updates order detail date using 'ORDER_START_DATE' column
+     * Subtracts 1 day from ORDER_START_DATE as per requirement
+     */
+    private void tryAlternativeUpdateOrderDetailDate(String customerId) throws Exception {
+        String query = "UPDATE order_detail " +
+                       "SET `ORDER_START_DATE` = `ORDER_START_DATE` - INTERVAL 1 DAY " +
+                       "WHERE `CUSTOMER` = ? AND `STATUS` = 'Y' " +
+                       "AND `ORDER_START_DATE` >= CURRENT_DATE + INTERVAL 1 DAY " +
+                       "AND `ORDER_START_DATE` < CURRENT_DATE + INTERVAL 2 DAY";
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+
+            ps.setString(1, customerId);
+            int rowsUpdated = ps.executeUpdate();
+            
+            if (rowsUpdated > 0) {
+                System.out.println("✓ Order detail ORDER_START_DATE updated (decreased by 1 day) for customer: " + customerId);
+            } else {
+                System.out.println("⚠ No active orders found for alternative date correction. Customer: " + customerId);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to update order detail date (both attempts) for customer " + 
+                                     customerId + ": " + e.getMessage(), e);
         }
     }
 

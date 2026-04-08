@@ -207,6 +207,20 @@ public class SaleMarkingService {
         return dbUtil.getRouteSheetDetails(customerId);
     }
 
+    /**
+     * Search customer by phone number
+     */
+    public List<Map<String, Object>> searchCustomerByPhone(String phone) throws Exception {
+        return apiClient.searchCustomerByPhone(phone);
+    }
+
+    /**
+     * Get customer details by DB ID
+     */
+    public Map<String, Object> getCustomerDetails(String dbId) throws Exception {
+        return apiClient.getCustomerDetails(dbId);
+    }
+
     private Long extractDeliveryIdFromRouteSheet(Map<String, Object> routeSheet) {
         if (routeSheet.containsKey("deliveryId")) {
             return ((Number) routeSheet.get("deliveryId")).longValue();
