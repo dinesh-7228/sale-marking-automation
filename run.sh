@@ -29,7 +29,7 @@ if [ $? -eq 0 ]; then
     echo "✓ Build successful!"
     echo ""
     echo "Starting application..."
-    echo "Access at: http://localhost:6000/"
+    echo "Access at: http://localhost:6161/"
     echo ""
     java -jar target/sale-marking-automation-1.0.0.jar
 else

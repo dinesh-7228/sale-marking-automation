@@ -19,29 +19,48 @@ public class DatabaseUtil {
     private EnvironmentConfig envConfig;
 
     private Connection getConnection() throws SQLException {
-        String dbHost = getEnvValue("DB_HOST", "non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com");
-        String dbPort = getEnvValue("DB_PORT", "3306");
-        String dbName = getEnvValue("DB_NAME", "");
-        String dbUser = getEnvValue("DB_USER", "dinesh");
-        String dbPassword = getEnvValue("DB_PASSWORD", "pjq4gry4ir6QSGh");
+        String dbHost = getEnvValue("db.host", "non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com");
+        String dbPort = getEnvValue("db.port", "3306");
+        String dbName = getEnvValue("db.name", "beejapuri_QA");
+        String dbUser = getEnvValue("db.user", "dinesh");
+        String dbPassword = getEnvValue("db.password", "pjq4gry4ir6QSGh");
 
         String url = "jdbc:mysql://" + dbHost + ":" + dbPort + "/" + dbName;
+        System.out.println("🔌 Database Connection URL: " + url);
         
         return DriverManager.getConnection(url, dbUser, dbPassword);
     }
 
     private String getEnvValue(String key, String defaultValue) {
-        String value = env.getProperty(key);
-        return value != null && !value.isEmpty() ? value : defaultValue;
+        // Try from environment first
+        String envValue = System.getenv(key.replace(".", "_").toUpperCase());
+        if (envValue != null && !envValue.isEmpty()) {
+            System.out.println("✓ Using environment variable: " + key + " = " + envValue);
+            return envValue;
+        }
+        
+        // Try from Spring properties
+        String propValue = env.getProperty(key);
+        if (propValue != null && !propValue.isEmpty()) {
+            System.out.println("✓ Using Spring property: " + key + " = " + propValue);
+            return propValue;
+        }
+        
+        // Use default
+        System.out.println("ℹ Using default for " + key + ": " + defaultValue);
+        return defaultValue;
     }
 
     /**
      * Automatically updates route sheet date from tomorrow to today
      * Called immediately after route sheet generation
+     * 
+     * Note: Handles both 'delivery_date' and 'DATE' column names
      */
     public void updateRouteSheetDate(String customerId) throws Exception {
-        String query = "UPDATE route_sheet_details SET delivery_date = CURDATE() " +
-                       "WHERE customer_id = ? AND delivery_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
+        // Try with delivery_date column first (current implementation)
+        String query = "UPDATE route_sheet_details SET date = CURDATE() " +
+                       "WHERE customer_id = ? AND date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
 
         try (Connection con = getConnection();
              PreparedStatement ps = con.prepareStatement(query)) {
@@ -55,18 +74,53 @@ public class DatabaseUtil {
                 System.out.println("⚠ No route sheet found for date correction. Customer: " + customerId);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("CRITICAL: Failed to update route sheet date for customer " + customerId + 
-                                     ": " + e.getMessage(), e);
+            // If column not found, try alternative column name
+            if (e.getMessage() != null && (e.getMessage().contains("Unknown column") || 
+                e.getMessage().contains("no such column"))) {
+                System.out.println("⚠ Column 'delivery_date' not found, trying 'DATE'...");
+                tryAlternativeUpdateRouteSheetDate(customerId);
+            } else {
+                throw new RuntimeException("CRITICAL: Failed to update route sheet date for customer " + customerId + 
+                                         ": " + e.getMessage(), e);
+            }
+        }
+    }
+
+    /**
+     * Alternative: Updates route sheet date using 'DATE' column
+     */
+    private void tryAlternativeUpdateRouteSheetDate(String customerId) throws Exception {
+        String query = "UPDATE route_sheet_details SET `DATE` = CURDATE() " +
+                       "WHERE customer = ? AND `DATE` = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+
+            ps.setString(1, customerId);
+            int rowsUpdated = ps.executeUpdate();
+            
+            if (rowsUpdated > 0) {
+                System.out.println("✓ Route sheet DATE updated to TODAY for customer: " + customerId);
+            } else {
+                System.out.println("⚠ No route sheet found for alternative date correction. Customer: " + customerId);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to update route sheet date (both attempts) for customer " + 
+                                     customerId + ": " + e.getMessage(), e);
         }
     }
 
     /**
      * Automatically updates order detail start date from tomorrow to today
      * Called immediately after order placement
+     * 
+     * Handles the requirement: ORDER_START_DATE - INTERVAL 1 DAY
+     * Also handles both 'start_date' and 'ORDER_START_DATE' column names
      */
     public void updateOrderDetailDate(String customerId) throws Exception {
-        String query = "UPDATE order_detail SET start_date = CURDATE() " +
-                       "WHERE customer_id = ? AND STATUS = 'Y' AND start_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
+        // Try with start_date column first (current implementation)
+        String query = "UPDATE order_detail SET order_start_date = CURDATE() " +
+                       "WHERE customer_id = ? AND STATUS = 'Y' AND order_start_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
 
         try (Connection con = getConnection();
              PreparedStatement ps = con.prepareStatement(query)) {
@@ -80,8 +134,43 @@ public class DatabaseUtil {
                 System.out.println("⚠ No active orders found for date correction. Customer: " + customerId);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("CRITICAL: Failed to update order detail date for customer " + customerId + 
-                                     ": " + e.getMessage(), e);
+            // If column not found, try alternative column name
+            if (e.getMessage() != null && (e.getMessage().contains("Unknown column") || 
+                e.getMessage().contains("no such column"))) {
+                System.out.println("⚠ Column 'start_date' not found, trying 'ORDER_START_DATE'...");
+                tryAlternativeUpdateOrderDetailDate(customerId);
+            } else {
+                throw new RuntimeException("CRITICAL: Failed to update order detail date for customer " + customerId + 
+                                         ": " + e.getMessage(), e);
+            }
+        }
+    }
+
+    /**
+     * Alternative: Updates order detail date using 'ORDER_START_DATE' column
+     * Subtracts 1 day from ORDER_START_DATE as per requirement
+     */
+    private void tryAlternativeUpdateOrderDetailDate(String customerId) throws Exception {
+        String query = "UPDATE order_detail " +
+                       "SET `ORDER_START_DATE` = `ORDER_START_DATE` - INTERVAL 1 DAY " +
+                       "WHERE `CUSTOMER` = ? AND `STATUS` = 'Y' " +
+                       "AND `ORDER_START_DATE` >= CURRENT_DATE + INTERVAL 1 DAY " +
+                       "AND `ORDER_START_DATE` < CURRENT_DATE + INTERVAL 2 DAY";
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+
+            ps.setString(1, customerId);
+            int rowsUpdated = ps.executeUpdate();
+            
+            if (rowsUpdated > 0) {
+                System.out.println("✓ Order detail ORDER_START_DATE updated (decreased by 1 day) for customer: " + customerId);
+            } else {
+                System.out.println("⚠ No active orders found for alternative date correction. Customer: " + customerId);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to update order detail date (both attempts) for customer " + 
+                                     customerId + ": " + e.getMessage(), e);
         }
     }
 
@@ -275,5 +364,139 @@ public class DatabaseUtil {
         }
         
         return verification;
+    }
+
+    /**
+     * Search customer by primary contact number (mobile number)
+     * Returns list of matching customers with their details
+     */
+    public List<Map<String, Object>> searchCustomerByPhone(String phoneNumber) throws Exception {
+        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
+            throw new IllegalArgumentException("Phone number cannot be empty");
+        }
+
+        String query = "SELECT * FROM customer c WHERE c.PRIMARY_CONTACT_NUMBER = ?";
+        List<Map<String, Object>> customers = new ArrayList<>();
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+
+            ps.setString(1, phoneNumber);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                Map<String, Object> customer = new HashMap<>();
+                
+                // Extract all columns from result set
+                ResultSetMetaData metaData = rs.getMetaData();
+                int columnCount = metaData.getColumnCount();
+                
+                for (int i = 1; i <= columnCount; i++) {
+                    String columnName = metaData.getColumnName(i);
+                    customer.put(columnName, rs.getObject(i));
+                }
+                
+                customers.add(customer);
+            }
+
+            if (!customers.isEmpty()) {
+                System.out.println("✓ Found " + customers.size() + " customer(s) for phone: " + phoneNumber);
+            } else {
+                System.out.println("⚠ No customers found for phone: " + phoneNumber);
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to search customer by phone " + phoneNumber + 
+                                     ": " + e.getMessage(), e);
+        }
+
+        return customers;
+    }
+
+    /**
+     * Fetch customer attributes by customer ID
+     * Returns list of attributes for the given customer
+     */
+    public List<Map<String, Object>> getCustomerAttributes(String customerId) throws Exception {
+        if (customerId == null || customerId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Customer ID cannot be empty");
+        }
+
+        String query = "SELECT * FROM customer_attributes ca WHERE ca.CUSTOMER = ?";
+        List<Map<String, Object>> attributes = new ArrayList<>();
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+
+            ps.setString(1, customerId);
+            ResultSet rs = ps.executeQuery();
+
+            while (rs.next()) {
+                Map<String, Object> attribute = new HashMap<>();
+                
+                // Extract all columns from result set
+                ResultSetMetaData metaData = rs.getMetaData();
+                int columnCount = metaData.getColumnCount();
+                
+                for (int i = 1; i <= columnCount; i++) {
+                    String columnName = metaData.getColumnName(i);
+                    attribute.put(columnName, rs.getObject(i));
+                }
+                
+                attributes.add(attribute);
+            }
+
+            if (!attributes.isEmpty()) {
+                System.out.println("✓ Found " + attributes.size() + " attribute(s) for customer: " + customerId);
+            } else {
+                System.out.println("⚠ No attributes found for customer: " + customerId);
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to fetch customer attributes for customer " + customerId + 
+                                     ": " + e.getMessage(), e);
+        }
+
+        return attributes;
+    }
+
+    /**
+     * Fetch complete customer details including address and franchise info
+     * Used for customer validation
+     */
+    public Map<String, Object> getCustomerDetailsFromDb(String customerId) throws Exception {
+        if (customerId == null || customerId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Customer ID cannot be empty");
+        }
+
+        String query = "SELECT * FROM customer WHERE ID = ?";
+        Map<String, Object> customerDetails = new HashMap<>();
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+
+            ps.setString(1, customerId);
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                ResultSetMetaData metaData = rs.getMetaData();
+                int columnCount = metaData.getColumnCount();
+                
+                for (int i = 1; i <= columnCount; i++) {
+                    String columnName = metaData.getColumnName(i);
+                    customerDetails.put(columnName, rs.getObject(i));
+                }
+                
+                System.out.println("✓ Customer details retrieved for ID: " + customerId);
+            } else {
+                System.out.println("⚠ No customer found with ID: " + customerId);
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to fetch customer details for ID " + customerId + 
+                                     ": " + e.getMessage(), e);
+        }
+
+        return customerDetails;
     }
 }
