@@ -8,6 +8,7 @@ import com.countrydelight.api.ApiClient;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/api/customer")
@@ -69,6 +70,22 @@ public class CustomerController {
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
                 "message", "Error fetching customer details: " + e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/attributes/{customerId}")
+    public ResponseEntity<?> getCustomerAttributes(@PathVariable String customerId) {
+        try {
+            Map<String, Object> attributes = customerSearchService.getCustomerAttributes(customerId);
+            return ResponseEntity.ok(attributes);
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "customerId", customerId,
+                "attributes", new ArrayList<>(),
+                "hasAttributes", false,
+                "message", "Customer attributes not available - " + e.getMessage()
             ));
         }
     }
