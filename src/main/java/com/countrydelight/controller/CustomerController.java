@@ -27,21 +27,21 @@ public class CustomerController {
             List<Map<String, Object>> customers = customerSearchService.searchCustomerByPhone(phone);
             
             if (customers.isEmpty()) {
-                return ResponseEntity.ok(Map.of(
-                    "success", false,
-                    "message", "No customers found with this phone number"
-                ));
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("message", "No customers found with this phone number");
+                return ResponseEntity.ok(response);
             }
             
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "data", customers
-            ));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", customers);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Error searching customer: " + e.getMessage()
-            ));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Error searching customer: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
     }
 
@@ -67,10 +67,10 @@ public class CustomerController {
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Error fetching customer details: " + e.getMessage()
-            ));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Error fetching customer details: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
     }
 
@@ -80,13 +80,13 @@ public class CustomerController {
             Map<String, Object> attributes = customerSearchService.getCustomerAttributes(customerId);
             return ResponseEntity.ok(attributes);
         } catch (Exception e) {
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "customerId", customerId,
-                "attributes", new ArrayList<>(),
-                "hasAttributes", false,
-                "message", "Customer attributes not available - " + e.getMessage()
-            ));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("customerId", customerId);
+            response.put("attributes", new ArrayList<>());
+            response.put("hasAttributes", false);
+            response.put("message", "Customer attributes not available - " + e.getMessage());
+            return ResponseEntity.ok(response);
         }
     }
 
@@ -96,10 +96,10 @@ public class CustomerController {
             Map<String, Object> validation = customerSearchService.validateCustomer(customer);
             return ResponseEntity.ok(validation);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Validation error: " + e.getMessage()
-            ));
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Validation error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
     }
 }
