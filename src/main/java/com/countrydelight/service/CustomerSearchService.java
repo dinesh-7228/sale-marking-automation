@@ -37,6 +37,46 @@ public class CustomerSearchService {
             }
             
             System.out.println("✓ Found " + customers.size() + " customers");
+            
+            // Fetch customer attributes for each customer using ID field
+            for (Map<String, Object> customer : customers) {
+                Object idObj = customer.get("ID");
+                if (idObj != null) {
+                    try {
+                        Long customerId = null;
+                        if (idObj instanceof Number) {
+                            customerId = ((Number) idObj).longValue();
+                        } else {
+                            customerId = Long.parseLong(idObj.toString());
+                        }
+                        
+                        System.out.println("📋 Fetching attributes for customer ID: " + customerId);
+                        List<Map<String, Object>> attributes = databaseUtil.getCustomerAttributes(String.valueOf(customerId));
+                        
+                        if (!attributes.isEmpty()) {
+                            // Add attributes to the customer object
+                            customer.put("attributes", attributes);
+                            customer.put("hasAttributes", true);
+                            // Add primary attribute fields for quick access
+                            Map<String, Object> primaryAttr = attributes.get(0);
+                            customer.put("AREA", primaryAttr.get("AREA"));
+                            customer.put("FRANCHISE", primaryAttr.get("FRANCHISE"));
+                            customer.put("CITY", primaryAttr.get("CITY"));
+                            System.out.println("✓ Attributes added for customer ID: " + customerId);
+                        } else {
+                            System.out.println("⚠️ No attributes found for customer ID: " + customerId);
+                            customer.put("attributes", new ArrayList<>());
+                            customer.put("hasAttributes", false);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("⚠️ Failed to fetch attributes for customer: " + e.getMessage());
+                        customer.put("attributes", new ArrayList<>());
+                        customer.put("hasAttributes", false);
+                        customer.put("attributesFetchError", e.getMessage());
+                    }
+                }
+            }
+            
             return customers;
             
         } catch (Exception e) {

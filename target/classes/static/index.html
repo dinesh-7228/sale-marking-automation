@@ -466,34 +466,34 @@
                     db_id: '${c.db_id}', 
                     name: '${c.name}', 
                     city_id: ${c.city_id},
-                    franchise_id: '${c.franchise_id || ''}'
+                    franchise_id: '${c.FIRST_NAME || ''}'
                 })">
                     <div style="flex: 1;">
                         <div class="product-name">${c.name || 'Unknown'}</div>
-                        <div class="product-meta">Phone: ${c.phone} | DB ID: ${c.db_id}</div>
-                        <div class="product-meta">City: ${c.city_id || 'N/A'} | Franchise: ${c.franchise_id || 'Not Set'}</div>
+                        <div class="product-meta">Phone: ${c.PRIMARY_CONTACT_NUMBER} | DB ID: ${c.id}</div>
+<!--                        <div class="product-meta">City: ${c.city || 'N/A'} | Franchise: ${c.franchise || 'Not Set'}</div>-->
                     </div>
                 </div>
             `).join('');
             document.getElementById('customerResults').style.display = 'block';
         }
 
-        function selectCustomer(customer) {
-            if (!customer.city_id) {
-                showAlert('This customer has no city assigned', 'error');
-                return;
-            }
-            if (!customer.franchise_id) {
-                showAlert('Please update franchise information', 'warning');
-            }
-            selectedCustomer = customer;
-            document.getElementById('summaryCustomerName').textContent = customer.name;
-            document.getElementById('summaryCityId').textContent = customer.city_id;
-            document.getElementById('customerSummary').style.display = 'block';
-            document.getElementById('customerSearch').style.display = 'none';
-            document.getElementById('productSelection').style.display = 'block';
-            fetchProducts();
-        }
+<!--        function selectCustomer(customer) {-->
+<!--            if (!customer.city_id) {-->
+<!--                showAlert('This customer has no city assigned', 'error');-->
+<!--                return;-->
+<!--            }-->
+<!--            if (!customer.franchise_id) {-->
+<!--                showAlert('Please update franchise information', 'warning');-->
+<!--            }-->
+<!--            selectedCustomer = customer;-->
+<!--            document.getElementById('summaryCustomerName').textContent = customer.name;-->
+<!--            document.getElementById('summaryCityId').textContent = customer.city_id;-->
+<!--            document.getElementById('customerSummary').style.display = 'block';-->
+<!--            document.getElementById('customerSearch').style.display = 'none';-->
+<!--            document.getElementById('productSelection').style.display = 'block';-->
+<!--            fetchProducts();-->
+<!--        }-->
 
         async function fetchProducts() {
             showLoading('Fetching products...');

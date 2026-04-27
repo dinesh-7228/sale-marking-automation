@@ -390,22 +390,22 @@
             document.getElementById('customerResults').style.display = 'block';
         }
 
-        function selectCustomer(customer) {
-            if (!customer.city_id) {
-                showAlert('This customer has no city assigned', 'error');
-                return;
-            }
-            if (!customer.franchise_id) {
-                showAlert('Please update franchise information', 'warning');
-            }
-            selectedCustomer = customer;
-            document.getElementById('summaryCustomerName').textContent = customer.name;
-            document.getElementById('summaryCityId').textContent = customer.city_id;
-            document.getElementById('customerSummary').style.display = 'block';
-            document.getElementById('customerSearch').style.display = 'none';
-            document.getElementById('productSelection').style.display = 'block';
-            fetchProducts();
-        }
+<!--        function selectCustomer(customer) {-->
+<!--            if (!customer.city_id) {-->
+<!--                showAlert('This customer has no city assigned', 'error');-->
+<!--                return;-->
+<!--            }-->
+<!--            if (!customer.franchise_id) {-->
+<!--                showAlert('Please update franchise information', 'warning');-->
+<!--            }-->
+<!--            selectedCustomer = customer;-->
+<!--            document.getElementById('summaryCustomerName').textContent = customer.name;-->
+<!--            document.getElementById('summaryCityId').textContent = customer.city_id;-->
+<!--            document.getElementById('customerSummary').style.display = 'block';-->
+<!--            document.getElementById('customerSearch').style.display = 'none';-->
+<!--            document.getElementById('productSelection').style.display = 'block';-->
+<!--            fetchProducts();-->
+<!--        }-->
 
         async function fetchProducts() {
             showLoading('Fetching products...');

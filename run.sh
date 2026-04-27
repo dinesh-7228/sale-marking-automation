@@ -8,7 +8,7 @@ echo "======================================================"
 # Set environment variables
 export DB_HOST="non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com"
 export DB_PORT="3306"
-export DB_NAME="your_database_name"  # IMPORTANT: Replace with actual database name
+export DB_NAME="beejapuri_QA"  # IMPORTANT: Replace with actual database name
 export DB_USER="dinesh"
 export DB_PASSWORD="pjq4gry4ir6QSGh"
 

@@ -321,4 +321,47 @@ public class ApiClient {
         // Use mock API if enabled or real API failed
         return mockApiClient.getCustomerDetails(db_id);
     }
+
+    /**
+     * Add funds to customer wallet if balance is insufficient
+     */
+    public boolean addFunds(Long customerId, Double amount, String remarks) throws Exception {
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+            String additionDate = LocalDate.now().format(formatter);
+            
+            String url = "https://qa-cms.countrydelight.in/admin/v1/fundManagement/addFunds?additionDate=" + additionDate;
+            
+            Map<String, Object> customerData = new HashMap<>();
+            customerData.put("customer_id", customerId);
+            customerData.put("amount", amount);
+            customerData.put("remarks", remarks);
+            customerData.put("payment_type", 6);
+            customerData.put("new_wallet_balance", amount);
+            
+            List<Map<String, Object>> customers = new ArrayList<>();
+            customers.add(customerData);
+            
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("customers", customers);
+            
+            Response response = RestAssured.given()
+                    .header("Authorization", getAuthToken())
+                    .header("accept", "application/json, text/plain, */*")
+                    .header("content-type", "application/json;charset=UTF-8")
+                    .body(payload)
+                    .post(url);
+            
+            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
+                System.out.println("✓ Funds added successfully. Amount: " + amount + ", Customer: " + customerId);
+                return true;
+            } else {
+                System.out.println("⚠ Add funds failed with status: " + response.getStatusCode());
+                return false;
+            }
+        } catch (Exception e) {
+            System.out.println("⚠ Add funds API call failed: " + e.getMessage());
+            return false;
+        }
+    }
 }
