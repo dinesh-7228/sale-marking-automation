@@ -261,6 +261,14 @@
     <div class="container">
         <div class="header">
             <h1>    🎯 Sale Marking Automation By Dinesh</h1>
+            <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                <label for="envSelect" style="font-size: 13px; color: #555;">Environment:</label>
+                <select id="envSelect" onchange="switchEnvironment(this.value)" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px;">
+                    <option value="QA">QA</option>
+                    <option value="UAT">UAT</option>
+                </select>
+                <span id="envNote" style="font-size: 12px; color: #999;"></span>
+            </div>
         </div>
 
         <div class="content">
@@ -298,6 +306,25 @@
                 <h3>Available Products</h3>
                 <div class="product-list" id="productList"></div>
 
+                <div id="manualProductBlock" style="display: none; margin-top: 16px; padding: 12px; border: 2px dashed #667eea; border-radius: 6px; background: #f8f9ff;">
+                    <h3>No catalog products found — enter Product ID manually</h3>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        <label style="font-size: 13px;">Product ID:</label>
+                        <input type="number" id="manualProductId" min="1" placeholder="e.g. 183" style="width: 90px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                        <label style="font-size: 13px;">Qty:</label>
+                        <input type="number" id="manualQty" min="1" value="1" style="width: 55px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                        <label style="font-size: 13px;">Type:</label>
+                        <select id="manualType" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">
+                            <option>one_time</option>
+                            <option>daily</option>
+                            <option>weekend</option>
+                            <option>alternate</option>
+                        </select>
+                        <button class="btn-primary" onclick="addManualProduct()">Add Product</button>
+                    </div>
+                    <div id="manualSelected" style="margin-top: 10px; font-size: 13px;"></div>
+                </div>
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px;">
                     <button class="btn-primary" onclick="backToSearch()" style="background: #e0e0e0; color: #333;">Back</button>
                     <button class="btn-primary" onclick="proceedToOrder()">Proceed</button>
@@ -311,6 +338,11 @@
                 <div class="selected-summary">
                     <h3>Order Summary</h3>
                     <div id="orderSummary"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Sale Marking Date (Step-8)</label>
+                    <input type="date" id="saleDateInput" onchange="updateSaleDateLabel()">
                 </div>
 
                 <button class="btn-primary" onclick="completeOrder()">Place Order & Mark Sale</button>
@@ -339,6 +371,46 @@
             alertContainer.appendChild(alertDiv);
             setTimeout(() => alertDiv.remove(), 5000);
         }
+
+        async function loadCurrentEnvironment() {
+            try {
+                const response = await fetch('/api/environment');
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('envSelect').value = data.env.toUpperCase();
+                    updateEnvNote(data.env.toUpperCase());
+                }
+            } catch (error) {
+                console.error('Failed to load environment:', error);
+            }
+        }
+
+        async function switchEnvironment(env) {
+            showLoading(`Switching to ${env} ...`);
+            try {
+                const response = await fetch('/api/environment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ env: env })
+                });
+                const data = await response.json();
+                hideLoading();
+                updateEnvNote(env);
+                showAlert(data.message || `Environment switched to ${env}`, data.success ? 'success' : 'error');
+            } catch (error) {
+                hideLoading();
+                showAlert(`Failed to switch environment: ${error.message}`, 'error');
+            }
+        }
+
+        function updateEnvNote(env) {
+            const note = document.getElementById('envNote');
+            note.textContent = env === 'UAT'
+                ? 'APIs: uat-cms | DB: beejapuri_UAT'
+                : 'APIs: qa-cms | DB: beejapuri_QA';
+        }
+
+        window.addEventListener('DOMContentLoaded', loadCurrentEnvironment);
 
         function showLoading(text = 'Processing...') {
             document.getElementById('loadingText').textContent = text;
@@ -416,11 +488,18 @@
         async function fetchProducts() {
             showLoading('Fetching products...');
             try {
-                const response = await fetch(`/api/product/fetch?customerId=${selectedCustomer.id}&cityId=${selectedCustomer.city}`);
+                const cityId = selectedCustomer.city && selectedCustomer.city !== 'N/A' ? selectedCustomer.city : '';
+                const response = await fetch(`/api/product/fetch?customerId=${selectedCustomer.customerId}&cityId=${cityId}`);
                 const data = await response.json();
                 hideLoading();
                 if (data.success) {
-                    displayProducts(data.data);
+                    if (data.data && data.data.length > 0) {
+                        displayProducts(data.data);
+                    } else {
+                        document.getElementById('productList').innerHTML = '';
+                        document.getElementById('manualProductBlock').style.display = 'block';
+                        showAlert('No catalog products for this customer — enter Product ID manually', 'warning');
+                    }
                 } else {
                     showAlert('No products available', 'warning');
                 }
@@ -428,6 +507,39 @@
                 hideLoading();
                 showAlert(`Error: ${error.message}`, 'error');
             }
+        }
+
+        function addManualProduct() {
+            const pidInput = document.getElementById('manualProductId').value;
+            const pid = parseInt(pidInput);
+            if (!pid || isNaN(pid)) {
+                showAlert('Enter a valid Product ID', 'error');
+                return;
+            }
+            const qty = parseInt(document.getElementById('manualQty').value) || 1;
+            const type = document.getElementById('manualType').value;
+            if (selectedProducts.some(p => p.id === pid)) {
+                showAlert('Product ' + pid + ' already added', 'warning');
+                return;
+            }
+            selectedProducts.push({ id: pid, name: 'Product ' + pid, quantity: qty, order_type: type });
+            renderManualSelected();
+            document.getElementById('manualProductId').value = '';
+            showAlert('Product ' + pid + ' added (qty ' + qty + ', ' + type + ')', 'success');
+        }
+
+        function removeManualProduct(pid) {
+            selectedProducts = selectedProducts.filter(p => p.id !== pid);
+            renderManualSelected();
+        }
+
+        function renderManualSelected() {
+            const container = document.getElementById('manualSelected');
+            container.innerHTML = selectedProducts.map(p => `
+                <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #eee;">
+                    <span>${p.name} × ${p.quantity} (${p.order_type})</span>
+                    <span style="cursor: pointer; color: #721c24;" onclick="removeManualProduct(${p.id})">✕ Remove</span>
+                </div>`).join('') || '<span style="color:#999;">No products added yet.</span>';
         }
 
         function displayProducts(products) {
@@ -476,11 +588,17 @@
             `).join('');
             document.getElementById('productSelection').style.display = 'none';
             document.getElementById('orderCompletion').style.display = 'block';
+            setDefaultSaleDate();
         }
 
         async function completeOrder() {
             showLoading('Processing order...');
             try {
+                const saleDateEl = document.getElementById('saleDateInput');
+                let saleDate = saleDateEl && saleDateEl.value ? saleDateEl.value : new Date().toISOString().split('T')[0];
+                // Convert yyyy-MM-dd to dd-MM-yyyy
+                saleDate = convertDateToDisplay(saleDate);
+
                 const response = await fetch('/api/order/place-and-mark', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -490,6 +608,7 @@
                         cityId: selectedCustomer.city,
                         latitude: null,
                         longitude: null,
+                        saleDate: saleDate,
                         products: selectedProducts
                     })
                 });
@@ -507,9 +626,39 @@
             }
         }
 
+        function updateSaleDateLabel() {
+            const el = document.getElementById('saleDateInput');
+            if (el && el.value) {
+                showAlert(`Sale will be registered on ${convertDateToDisplay(el.value)}`, 'info');
+            }
+        }
+
+        function convertDateToDisplay(dateStr) {
+            if (!dateStr) return dateStr;
+            const parts = dateStr.split('-');
+            if (parts.length === 3 && parts[0].length === 4) {
+                // yyyy-MM-dd -> dd-MM-yyyy
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateStr;
+        }
+
+        function setDefaultSaleDate() {
+            const el = document.getElementById('saleDateInput');
+            if (el) {
+                const now = new Date();
+                const yyyy = now.getFullYear();
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                el.value = `${yyyy}-${mm}-${dd}`;
+            }
+        }
+
         function backToSearch() {
             document.getElementById('productSelection').style.display = 'none';
             document.getElementById('customerSearch').style.display = 'block';
+            document.getElementById('manualProductBlock').style.display = 'none';
+            document.getElementById('manualSelected').innerHTML = '';
             selectedProducts = [];
         }
 
@@ -517,6 +666,8 @@
             document.getElementById('phoneInput').value = '';
             document.getElementById('customerResults').style.display = 'none';
             document.getElementById('orderCompletion').style.display = 'none';
+            document.getElementById('manualProductBlock').style.display = 'none';
+            document.getElementById('manualSelected').innerHTML = '';
             document.getElementById('customerSearch').style.display = 'block';
             selectedCustomer = null;
             selectedProducts = [];

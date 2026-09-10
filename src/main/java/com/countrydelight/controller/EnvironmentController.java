@@ -4,61 +4,48 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.countrydelight.config.EnvironmentConfig;
-import java.util.Map;
+import com.countrydelight.api.ApiClient;
+
 import java.util.HashMap;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/config")
+@RequestMapping("/api/environment")
 @CrossOrigin(origins = "*")
 public class EnvironmentController {
 
     @Autowired
     private EnvironmentConfig envConfig;
 
-    @GetMapping("/environment")
+    @Autowired
+    private ApiClient apiClient;
+
+    @GetMapping
     public ResponseEntity<?> getCurrentEnvironment() {
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "currentEnv", envConfig.getEnv(),
-            "baseUrl", envConfig.getApiBaseUrl(),
-            "adminUrl", envConfig.getAdminUrl()
-        ));
+        Map<String, Object> response = new HashMap<>();
+        response.put("env", envConfig.getEnv());
+        response.put("success", true);
+        return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/environment")
+    @PostMapping
     public ResponseEntity<?> setEnvironment(@RequestBody Map<String, String> request) {
-        try {
-            String env = request.get("environment");
-            if (env == null || (!env.equalsIgnoreCase("QA") && !env.equalsIgnoreCase("UAT"))) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Invalid environment. Use 'QA' or 'UAT'"
-                ));
-            }
-            
-            envConfig.setEnv(env.toUpperCase());
-            
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Environment switched to " + env.toUpperCase(),
-                "currentEnv", envConfig.getEnv(),
-                "baseUrl", envConfig.getApiBaseUrl(),
-                "adminUrl", envConfig.getAdminUrl()
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "message", "Error setting environment: " + e.getMessage()
-            ));
+        String env = request.get("env");
+        if (env == null || env.trim().isEmpty()) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Environment is required (QA or UAT)");
+            return ResponseEntity.badRequest().body(errorResponse);
         }
-    }
+        envConfig.setEnv(env.toUpperCase());
+        apiClient.resetMockMode();
+        System.out.println("🏷️  Environment switched to: " + envConfig.getEnv());
 
-    @GetMapping("/environments")
-    public ResponseEntity<?> listEnvironments() {
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "environments", new String[]{"QA", "UAT"},
-            "current", envConfig.getEnv()
-        ));
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("env", envConfig.getEnv());
+        response.put("message", "Environment switched to " + envConfig.getEnv() +
+                ". APIs and database (beejapuri_" + envConfig.getEnv().toUpperCase() + ") now use this environment.");
+        return ResponseEntity.ok(response);
     }
 }

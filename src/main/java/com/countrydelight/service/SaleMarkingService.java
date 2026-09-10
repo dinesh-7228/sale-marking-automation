@@ -34,7 +34,14 @@ public class SaleMarkingService {
         Map<String, Object> response = new HashMap<>();
         response.put("workflow", "COMPLETE_AUTOMATION");
         response.put("steps", new ArrayList<>());
-        
+
+        // Step-8: sale_marking_date (defaults to current date)
+        String saleDate = request.saleDate;
+        if (saleDate == null || saleDate.trim().isEmpty()) {
+            saleDate = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+        }
+        response.put("saleMarkingDate", saleDate);
+
         try {
             // STEP 1: Validate customer data
             System.out.println("\n=== STEP 1: Validating Customer Data ===");
@@ -47,22 +54,44 @@ public class SaleMarkingService {
             System.out.println("✓ Customer validated: " + request.customerId);
             addStep(response, "Customer Validated", "SUCCESS");
 
+            // COPY of the id semantics:
+            //  - request.customerId is the CMS customer_id from the search (Step-3),
+            //    used by the CMS APIs (placeOrder / addFunds).
+            //  - The DB tables (route_sheet_details / order_detail) reference the
+            //    customer by the DB primary key (customer.ID), which we resolve below.
+            String cmsCustomerId = request.customerId;
+            String dbCustomerId = null;
+            try {
+                dbCustomerId = dbUtil.getDbCustomerId(cmsCustomerId);
+            } catch (Exception e) {
+                System.out.println("⚠ DB customer id resolution failed: " + e.getMessage());
+            }
+            if (dbCustomerId == null) {
+                // Fallback: caller may have passed the DB ID already — use it as-is
+                dbCustomerId = cmsCustomerId;
+            }
+            response.put("customerId", cmsCustomerId);
+            response.put("dbCustomerId", dbCustomerId);
+
             // STEP 1B: Fetch customer attributes and check wallet balance
             System.out.println("\n=== STEP 1B: Checking Customer Wallet ===");
             try {
-                Long dbId = Long.parseLong(request.customerId);
+                Long dbId = Long.parseLong(dbCustomerId);
                 Map<String, Object> customerAttrs = dbUtil.getCustomerAttributes(dbId);
                 response.put("customerAttributes", customerAttrs);
-                
-                // Check wallet balance
-                Double walletBalance = 0.0;
+
+                // Check wallet balance (Step-6: top-up if insufficient)
+                Double walletBalance = null;
                 if (customerAttrs.containsKey("WALLET_BALANCE")) {
                     walletBalance = Double.parseDouble(customerAttrs.get("WALLET_BALANCE").toString());
+                } else {
+                    // Fallback: read from route_sheet_details.CURRENT_WALLET_BALANCE
+                    walletBalance = dbUtil.getWalletBalance(dbCustomerId);
                 }
-                
-                if (walletBalance < 100.0) {
+
+                if (walletBalance == null || walletBalance < 100.0) {
                     System.out.println("⚠ Low wallet balance: " + walletBalance + ". Adding funds...");
-                    apiClient.addFunds(dbId, 5000.0, "Automatic wallet top-up for order");
+                    apiClient.addFunds(Long.parseLong(cmsCustomerId), 5000.0, "Automatic wallet top-up for order");
                     addStep(response, "Customer Wallet Topped Up", "SUCCESS");
                 }
             } catch (Exception e) {
@@ -74,15 +103,15 @@ public class SaleMarkingService {
             List<Integer> productIds = new ArrayList<>();
             List<Integer> quantities = new ArrayList<>();
             List<String> orderTypes = new ArrayList<>();
-            
+
             for (Map<String, Object> product : request.products) {
                 productIds.add(((Number) product.get("id")).intValue());
                 quantities.add(((Number) product.get("quantity")).intValue());
                 orderTypes.add((String) product.getOrDefault("order_type", "daily"));
             }
-            
+
             try {
-                String orderResult = apiClient.placeOrder(request.customerId, productIds, quantities, orderTypes);
+                String orderResult = apiClient.placeOrder(cmsCustomerId, productIds, quantities, orderTypes, saleDate);
                 System.out.println("✓ Order placed successfully");
             } catch (Exception e) {
                 System.out.println("⚠ Order placement warning (using mock): " + e.getMessage());
@@ -92,14 +121,16 @@ public class SaleMarkingService {
             response.put("orderPlaced", true);
 
             // STEP 3: Generate Route Sheet via Voice API
+            // The generated route_sheet_details row stores CUSTOMER = DB id, so we
+            // pass the DB id here (matches the SQL used in steps 9-10).
             System.out.println("\n=== STEP 3: Generating Route Sheet ===");
             Map<String, Object> routeSheet = new HashMap<>();
             try {
-                routeSheet = apiClient.generateRouteSheet(request.customerId);
+                routeSheet = apiClient.generateRouteSheet(dbCustomerId);
             } catch (Exception e) {
                 System.out.println("⚠ Route sheet generation warning (using mock): " + e.getMessage());
                 routeSheet.put("id", 1001L);
-                routeSheet.put("customerId", request.customerId);
+                routeSheet.put("customerId", dbCustomerId);
                 routeSheet.put("status", "GENERATED_MOCK");
             }
             System.out.println("✓ Route sheet generated");
@@ -109,7 +140,7 @@ public class SaleMarkingService {
 
             // STEP 4: AUTO - Fetch Route Sheet ID
             System.out.println("\n=== STEP 4: AUTOMATIC - Fetching Route Sheet ID ===");
-            Map<String, Object> routeSheetDetails = dbUtil.getRouteSheetDetails(request.customerId);
+            Map<String, Object> routeSheetDetails = dbUtil.getRouteSheetDetails(dbCustomerId);
             if (routeSheetDetails.isEmpty()) {
                 throw new RuntimeException("Route sheet not found in database after generation");
             }
@@ -118,32 +149,34 @@ public class SaleMarkingService {
             response.put("routeSheetId", routeSheetId);
             addStep(response, "Route Sheet ID Fetched", "SUCCESS");
 
-            // STEP 5: AUTO - Update Route Sheet Date (Tomorrow → Today)
+            // STEP 5: AUTO - Update Route Sheet Date (to sale marking date + delivery_boy)
             System.out.println("\n=== STEP 5: AUTOMATIC - Updating Route Sheet Date ===");
             try {
-                dbUtil.updateRouteSheetDate(request.customerId);
+                dbUtil.updateRouteSheetDate(dbCustomerId, saleDate);
                 response.put("routeSheetDateUpdated", true);
-                addStep(response, "Route Sheet Date Updated (Tomorrow→Today)", "SUCCESS");
+                addStep(response, "Route Sheet Date Updated (to sale date + delivery_boy=26747)", "SUCCESS");
             } catch (Exception e) {
                 System.out.println("⚠ Warning: Route sheet date update failed: " + e.getMessage());
                 addStep(response, "Route Sheet Date Update", "WARNING - " + e.getMessage());
             }
 
-            // STEP 6: AUTO - Update Order Detail Date (Tomorrow → Today)
+            // STEP 6: AUTO - Update Order Detail Date (to sale marking date)
             System.out.println("\n=== STEP 6: AUTOMATIC - Updating Order Detail Date ===");
             try {
-                dbUtil.updateOrderDetailDate(request.customerId);
+                dbUtil.updateOrderDetailDate(dbCustomerId, saleDate);
                 response.put("orderDetailDateUpdated", true);
-                addStep(response, "Order Detail Date Updated (Tomorrow→Today)", "SUCCESS");
+                addStep(response, "Order Detail Date Updated (to sale marking date)", "SUCCESS");
             } catch (Exception e) {
                 System.out.println("⚠ Warning: Order detail date update failed: " + e.getMessage());
                 addStep(response, "Order Detail Date Update", "WARNING - " + e.getMessage());
             }
 
             // STEP 7: Mark Sale via Delivery API
+            // delivery / deliveryId must be the route_sheet_details.ID fetched from the DB
             System.out.println("\n=== STEP 7: Marking Sale ===");
             try {
-                apiClient.saleMarking(deliveryId, request.products, request.latitude, request.longitude);
+                Integer deliveryBoy = dbUtil.getDeliveryBoy(dbCustomerId);
+                apiClient.saleMarking(routeSheetId, request.products, request.latitude, request.longitude, deliveryBoy, saleDate);
                 System.out.println("✓ Sale marked in delivery system");
             } catch (Exception e) {
                 System.out.println("⚠ Sale marking warning (using mock): " + e.getMessage());
@@ -164,9 +197,9 @@ public class SaleMarkingService {
 
             // STEP 9: AUTO - Verify All Operations
             System.out.println("\n=== STEP 9: AUTOMATIC - Verification ===");
-            Map<String, Object> verification = dbUtil.verifyDateUpdates(request.customerId);
+            Map<String, Object> verification = dbUtil.verifyDateUpdates(dbCustomerId, saleDate);
             response.put("verification", verification);
-            
+
             if ((Boolean) verification.getOrDefault("routeSheetUpdated", false) &&
                 (Boolean) verification.getOrDefault("orderDetailUpdated", false)) {
                 System.out.println("✓ All database updates verified");
@@ -180,8 +213,8 @@ public class SaleMarkingService {
             response.put("success", true);
             response.put("message", "COMPLETE AUTOMATION: All steps completed successfully!");
             response.put("timestamp", new java.util.Date());
-            
-            printWorkflowSummary(response, request.customerId);
+
+            printWorkflowSummary(response, cmsCustomerId);
 
         } catch (Exception e) {
             System.out.println("\n❌ ERROR: Workflow failed: " + e.getMessage());
@@ -226,7 +259,8 @@ public class SaleMarkingService {
             }
             
             Long deliveryId = extractDeliveryIdFromRouteSheet(routeSheet);
-            apiClient.saleMarking(deliveryId, products, null, null);
+            Integer deliveryBoy = dbUtil.getDeliveryBoy(customerId);
+            apiClient.saleMarking(deliveryId, products, null, null, deliveryBoy, null);
             
             // Step 6 - AUTO Insert sales records
             Map<String, Object> routeSheetDetails = dbUtil.getRouteSheetDetails(customerId);

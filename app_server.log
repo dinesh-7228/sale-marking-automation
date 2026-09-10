@@ -1,0 +1,221 @@
+nohup: ignoring input
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::               (v2.7.14)
+
+2026-04-13 12:47:07.216  INFO 27052 --- [           main] c.countrydelight.SaleMarkingApplication  : Starting SaleMarkingApplication v1.0.0 using Java 21.0.10 on dinesh-cd-admin-HP-EliteBook-845-14-inch-G9-Notebook-PC with PID 27052 (/home/dinesh/Documents/sale-marking-automation/target/sale-marking-automation-1.0.0.jar started by dinesh in /home/dinesh/Documents/sale-marking-automation)
+2026-04-13 12:47:07.220 DEBUG 27052 --- [           main] c.countrydelight.SaleMarkingApplication  : Running with Spring Boot v2.7.14, Spring v5.3.29
+2026-04-13 12:47:07.221  INFO 27052 --- [           main] c.countrydelight.SaleMarkingApplication  : No active profile set, falling back to 1 default profile: "default"
+2026-04-13 12:47:09.503  INFO 27052 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8080 (http)
+2026-04-13 12:47:09.526  INFO 27052 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-04-13 12:47:09.526  INFO 27052 --- [           main] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.78]
+2026-04-13 12:47:09.635  INFO 27052 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-04-13 12:47:09.635  INFO 27052 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1974 ms
+2026-04-13 12:47:10.007  INFO 27052 --- [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
+2026-04-13 12:47:10.197  INFO 27052 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8080 (http) with context path ''
+2026-04-13 12:47:10.210  INFO 27052 --- [           main] c.countrydelight.SaleMarkingApplication  : Started SaleMarkingApplication in 3.777 seconds (JVM running for 4.483)
+2026-04-13 12:47:10.692  INFO 27052 --- [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-04-13 12:47:10.693  INFO 27052 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-04-13 12:47:10.694  INFO 27052 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+Environment set to: QA
+Environment set to: QA
+Customer number set to: 9810788205
+
+=== STEP 3: Search customer via mobile number ===
+
+=== Searching customer by phone: 9810788205 ===
+🔍 Searching customer by phone: 9810788205
+⚠️  Real API authentication failed. Switching to mock mode for development/testing...
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+✓ Found 1 customer(s) for phone: 9810788205
+✓ Found 1 customers
+
+=== STEP 4: Get customer details from customer_attributes ===
+❌ Workflow failed: Customer ID is required
+Environment set to: QA
+Customer number set to: 9810788205
+
+=== Searching customer by phone: 9810788205 ===
+🔍 Searching customer by phone: 9810788205
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+⚠ Database customer search failed: Failed to search customer by phone 9810788205: Communications link failure
+
+The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
+✗ Customer search failed: Failed to search customer by phone from database: Failed to search customer by phone 9810788205: Communications link failure
+
+The last packet sent successfully to the server was 0 milliseconds ago. The driver has not received any packets from the server.
+Environment set to: QA
+Customer number set to: 9810788205
+
+=== STEP 3: Search customer via mobile number ===
+
+=== Searching customer by phone: 9810788205 ===
+🔍 Searching customer by phone: 9810788205
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+✓ Found 1 customer(s) for phone: 9810788205
+✓ Found 1 customers
+
+=== STEP 4: Get customer details from customer_attributes ===
+
+=== Fetching customer attributes for ID: 9801990 ===
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+⚠ No attributes found for customer: 9801990
+⚠️  No customer attributes found - user can still proceed
+Customer ID set to: 9801990
+
+=== STEP 5: Show products to customer with multiple selection ===
+⚠️  No city ID found - fetching products with default city
+
+=== STEP 6: Place Order ===
+
+=== Placing order for customer: 9801990 ===
+⚠️  Real API order placement failed. Using mock mode...
+🔄 [MOCK] Placing order for customer: 9801990
+   Products: [114], Quantities: [1]
+✓ Order placed successfully
+
+=== STEP 7: Generate Route Sheet and Change Date ===
+
+=== Generating route sheet for customer: 9801990 ===
+⚠️  Real API route sheet generation failed. Using mock mode...
+🔄 [MOCK] Generating route sheet for customer: 9801990
+Route sheet ID set to: 1001
+
+=== Updating route sheet date to today ===
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+⚠ Column 'delivery_date' not found, trying 'DATE'...
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+⚠ No route sheet found for alternative date correction. Customer: 9801990
+✓ Route sheet date updated
+
+=== STEP 8: Change order_start_date to Today ===
+
+=== Updating order detail date to today ===
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+⚠ No active orders found for date correction. Customer: 9801990
+✓ Order detail date updated
+
+=== STEP 9: Mark the Sale ===
+
+=== Marking sale ===
+✓ Sale marked successfully
+Environment set to: QA
+Customer number set to: 9810788205
+
+=== STEP 3: Search customer via mobile number ===
+
+=== Searching customer by phone: 9810788205 ===
+🔍 Searching customer by phone: 9810788205
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+✓ Found 1 customer(s) for phone: 9810788205
+✓ Found 1 customers
+
+=== STEP 4: Get customer details from customer_attributes ===
+
+=== Fetching customer attributes for ID: 9801990 ===
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+⚠ No attributes found for customer: 9801990
+⚠️  No customer attributes found - user can still proceed
+Customer ID set to: 9801990
+
+=== STEP 5: Show products to customer with multiple selection ===
+⚠️  No city ID found - fetching products with default city
+
+=== STEP 6: Place Order ===
+
+=== Placing order for customer: 9801990 ===
+⚠️  Real API order placement failed. Using mock mode...
+🔄 [MOCK] Placing order for customer: 9801990
+   Products: [1202], Quantities: [2]
+✓ Order placed successfully
+
+=== STEP 7: Generate Route Sheet and Change Date ===
+
+=== Generating route sheet for customer: 9801990 ===
+⚠️  Real API route sheet generation failed. Using mock mode...
+🔄 [MOCK] Generating route sheet for customer: 9801990
+Route sheet ID set to: 1001
+
+=== Updating route sheet date to today ===
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+⚠ Column 'delivery_date' not found, trying 'DATE'...
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+⚠ No route sheet found for alternative date correction. Customer: 9801990
+✓ Route sheet date updated
+
+=== STEP 8: Change order_start_date to Today ===
+
+=== Updating order detail date to today ===
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+⚠ No active orders found for date correction. Customer: 9801990
+✓ Order detail date updated
+
+=== STEP 9: Mark the Sale ===
+
+=== Marking sale ===
+✓ Sale marked successfully

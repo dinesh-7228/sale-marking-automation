@@ -22,10 +22,15 @@ public class InteractiveWorkflowService {
     @Autowired
     private ProductService productService;
 
+    @Autowired
+    private com.countrydelight.config.EnvironmentConfig envConfig;
+
     private String environment;
     private String customerNumber;
     private String customerId;
+    private String apiCustomerId;
     private String cityId;
+    private String saleDate;
     private Map<String, Object> customerDetails;
     private List<Map<String, Object>> searchResults;
     private List<Map<String, Object>> availableProducts;
@@ -36,6 +41,11 @@ public class InteractiveWorkflowService {
 
     public void setEnvironment(String environment) {
         this.environment = environment;
+        // Pivot both the CMS API base/token and the database schema to the
+        // selected environment (QA -> beejapuri_QA, UAT -> beejapuri_UAT).
+        if (environment != null) {
+            envConfig.setEnv(environment.toUpperCase());
+        }
         System.out.println("Environment set to: " + environment);
     }
 
@@ -67,10 +77,34 @@ public class InteractiveWorkflowService {
                 this.cityId = String.valueOf(deliveryAddress.get("city_id"));
             }
         }
+
+        // The CMS APIs (placeOrder/addFunds) need the customer_id from the search,
+        // which is distinct from the DB primary key used by route_sheet_details.
+        Object apiId = details.get("customer_id");
+        if (apiId == null) {
+            apiId = details.get("CUSTOMER_ID");
+        }
+        if (apiId != null) {
+            this.apiCustomerId = String.valueOf(apiId);
+            System.out.println("API (CMS) customer id set to: " + apiCustomerId);
+        }
+    }
+
+    public String getApiCustomerId() {
+        return apiCustomerId != null ? apiCustomerId : customerId;
     }
 
     public String getCityId() {
         return cityId;
+    }
+
+    public void setSaleDate(String saleDate) {
+        this.saleDate = saleDate;
+        System.out.println("Sale date set to: " + saleDate);
+    }
+
+    public String getSaleDate() {
+        return saleDate;
     }
 
     public void setSearchResults(List<Map<String, Object>> results) {
@@ -135,6 +169,10 @@ public class InteractiveWorkflowService {
      * Step 6 & 7: Place order
      */
     public String placeOrder(String customerId, List<Map<String, Object>> products) throws Exception {
+        return placeOrder(customerId, products, null);
+    }
+
+    public String placeOrder(String customerId, List<Map<String, Object>> products, String saleDate) throws Exception {
         System.out.println("\n=== Placing order for customer: " + customerId + " ===");
         
         List<Integer> productIds = new ArrayList<>();
@@ -147,7 +185,7 @@ public class InteractiveWorkflowService {
             orderTypes.add((String) product.getOrDefault("order_type", "daily"));
         }
         
-        String result = apiClient.placeOrder(customerId, productIds, quantities, orderTypes);
+        String result = apiClient.placeOrder(getApiCustomerId(), productIds, quantities, orderTypes, saleDate);
         System.out.println("✓ Order placed successfully");
         return result;
     }
@@ -174,20 +212,45 @@ public class InteractiveWorkflowService {
     }
 
     /**
-     * Step 9: Update route sheet date to today
+     * Fetch the latest route_sheet_details ID for the customer directly from the DB.
+     * The generate route sheet API returns no id, so this is the source of truth
+     * for the delivery id used by the sale marking API (Step-11).
+     */
+    public Long fetchLatestRouteSheetId(String customerId) throws Exception {
+        System.out.println("\n=== Fetching latest route sheet ID from DB ===");
+        Map<String, Object> details = dbUtil.getRouteSheetDetails(customerId);
+        if (!details.isEmpty()) {
+            Long id = (Long) details.get("id");
+            System.out.println("✓ Route sheet ID from DB: " + id);
+            return id;
+        }
+        System.out.println("⚠ No route sheet found in DB for customer: " + customerId);
+        return null;
+    }
+
+    /**
+     * Step 9: Update route sheet date to sale marking date
      */
     public void updateRouteSheetDate(String customerId) throws Exception {
-        System.out.println("\n=== Updating route sheet date to today ===");
-        dbUtil.updateRouteSheetDate(customerId);
+        updateRouteSheetDate(customerId, null);
+    }
+
+    public void updateRouteSheetDate(String customerId, String saleDate) throws Exception {
+        System.out.println("\n=== Updating route sheet date (sale date + delivery_boy=26747) ===");
+        dbUtil.updateRouteSheetDate(customerId, saleDate);
         System.out.println("✓ Route sheet date updated");
     }
 
     /**
-     * Step 10: Update order detail date to today
+     * Step 10: Update order detail date to sale marking date
      */
     public void updateOrderDetailDate(String customerId) throws Exception {
-        System.out.println("\n=== Updating order detail date to today ===");
-        dbUtil.updateOrderDetailDate(customerId);
+        updateOrderDetailDate(customerId, null);
+    }
+
+    public void updateOrderDetailDate(String customerId, String saleDate) throws Exception {
+        System.out.println("\n=== Updating order detail date to sale marking date ===");
+        dbUtil.updateOrderDetailDate(customerId, saleDate);
         System.out.println("✓ Order detail date updated");
     }
 
@@ -195,8 +258,16 @@ public class InteractiveWorkflowService {
      * Step 11: Mark the sale
      */
     public void markSale(Long deliveryId, List<Map<String, Object>> products, Double latitude, Double longitude) throws Exception {
+        markSale(deliveryId, products, latitude, longitude, null);
+    }
+
+    public void markSale(Long deliveryId, List<Map<String, Object>> products, Double latitude, Double longitude, String saleDate) throws Exception {
         System.out.println("\n=== Marking sale ===");
-        apiClient.saleMarking(deliveryId, products, latitude, longitude);
+        Integer deliveryBoy = null;
+        if (customerId != null) {
+            deliveryBoy = dbUtil.getDeliveryBoy(customerId);
+        }
+        apiClient.saleMarking(deliveryId, products, latitude, longitude, deliveryBoy, saleDate);
         System.out.println("✓ Sale marked successfully");
     }
 
@@ -221,6 +292,13 @@ public class InteractiveWorkflowService {
             }
             setCustomerNumber(request.customerNumber);
             addStep(steps, "Customer Number Entry", "SUCCESS");
+
+            // Step 8: sale_marking_date (defaults to today if not provided)
+            String saleDate = request.saleDate;
+            if (saleDate == null || saleDate.trim().isEmpty()) {
+                saleDate = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+            }
+            this.saleDate = saleDate;
 
             // Step 3: Search customer
             List<Map<String, Object>> customers = searchCustomer(request.customerNumber);
@@ -251,7 +329,7 @@ public class InteractiveWorkflowService {
                 if (request.products == null || request.products.isEmpty()) {
                     throw new IllegalArgumentException("At least one product is required");
                 }
-                placeOrder(request.customerId, request.products);
+                placeOrder(request.customerId, request.products, saleDate);
                 setSelectedProducts(request.products);
                 addStep(steps, "Place Order", "SUCCESS");
             } else {
@@ -266,18 +344,18 @@ public class InteractiveWorkflowService {
             addStep(steps, "Generate Route Sheet", "SUCCESS");
 
             // Step 9: Update route sheet date
-            updateRouteSheetDate(request.customerId);
+            updateRouteSheetDate(request.customerId, saleDate);
             addStep(steps, "Update Route Sheet Date", "SUCCESS");
 
             // Step 10: Update order detail date
-            updateOrderDetailDate(request.customerId);
+            updateOrderDetailDate(request.customerId, saleDate);
             addStep(steps, "Update Order Detail Date", "SUCCESS");
 
             // Step 11: Mark sale
             if (selectedProducts == null || selectedProducts.isEmpty()) {
                 selectedProducts = request.products;
             }
-            markSale(rsId, selectedProducts, request.latitude, request.longitude);
+            markSale(rsId, selectedProducts, request.latitude, request.longitude, saleDate);
             addStep(steps, "Mark Sale", "SUCCESS");
 
             response.put("success", true);
@@ -285,6 +363,7 @@ public class InteractiveWorkflowService {
             response.put("steps", steps);
             response.put("customerId", customerId);
             response.put("routeSheetId", routeSheetId);
+            response.put("saleDate", saleDate);
 
         } catch (Exception e) {
             System.out.println("❌ Workflow failed: " + e.getMessage());
@@ -305,7 +384,9 @@ public class InteractiveWorkflowService {
         state.put("environment", environment);
         state.put("customerNumber", customerNumber);
         state.put("customerId", customerId);
+        state.put("apiCustomerId", apiCustomerId);
         state.put("cityId", cityId);
+        state.put("saleDate", saleDate);
         state.put("orderAlreadyPlaced", orderAlreadyPlaced);
         state.put("routeSheetId", routeSheetId);
         state.put("selectedProductsCount", selectedProducts != null ? selectedProducts.size() : 0);
@@ -319,7 +400,9 @@ public class InteractiveWorkflowService {
         environment = null;
         customerNumber = null;
         customerId = null;
+        apiCustomerId = null;
         cityId = null;
+        saleDate = null;
         customerDetails = null;
         searchResults = null;
         availableProducts = null;

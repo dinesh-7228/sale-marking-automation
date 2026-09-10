@@ -28,8 +28,16 @@ public class CustomerSearchService {
         try {
             System.out.println("🔍 Searching customer by phone: " + phoneNumber);
             
-            // Use ApiClient to search customers
-            List<Map<String, Object>> customers = apiClient.searchCustomerByPhone(phoneNumber);
+            // Search the customer table directly (Step-3):
+            // SELECT * FROM customer c WHERE c.PRIMARY_CONTACT_NUMBER = ?
+            List<Map<String, Object>> customers;
+            try {
+                customers = databaseUtil.searchCustomerByPhone(phoneNumber);
+                System.out.println("✓ DB search found " + customers.size() + " customer(s) for " + phoneNumber);
+            } catch (Exception dbError) {
+                System.out.println("⚠ DB search failed (" + dbError.getMessage() + "), falling back to CMS API search");
+                customers = apiClient.searchCustomerByPhone(phoneNumber);
+            }
             
             if (customers.isEmpty()) {
                 System.out.println("✗ No customers found");
@@ -41,9 +49,9 @@ public class CustomerSearchService {
             // Fetch customer attributes for each customer using ID field
             for (Map<String, Object> customer : customers) {
                 Object idObj = customer.get("ID");
+                Long customerId = null;
                 if (idObj != null) {
                     try {
-                        Long customerId = null;
                         if (idObj instanceof Number) {
                             customerId = ((Number) idObj).longValue();
                         } else {
@@ -73,6 +81,23 @@ public class CustomerSearchService {
                         customer.put("attributes", new ArrayList<>());
                         customer.put("hasAttributes", false);
                         customer.put("attributesFetchError", e.getMessage());
+                    }
+
+                    // Fallback: city may be absent from DB/attributes. Pull it from the
+                    // CMS customer details (delivery_address.city_id) so the UI can call
+                    // the product fetch endpoint with a valid cityId.
+                    if (customer.get("CITY") == null) {
+                        try {
+                            Map<String, Object> details = apiClient.getCustomerDetails(String.valueOf(customerId));
+                            Object cityId = extractCityIdFromDetails(details);
+                            if (cityId != null) {
+                                customer.put("CITY", (cityId instanceof Number)
+                                        ? ((Number) cityId).intValue() : Integer.parseInt(cityId.toString()));
+                                System.out.println("🏙️ City resolved via CMS details: " + cityId + " for customer: " + customerId);
+                            }
+                        } catch (Exception cityError) {
+                            System.out.println("⚠️ City resolution failed for customer " + customerId + ": " + cityError.getMessage());
+                        }
                     }
                 }
             }
@@ -144,5 +169,16 @@ public class CustomerSearchService {
             result.put("message", "Customer attributes not found - user can still proceed");
             return result;
         }
+    }
+
+    private Object extractCityIdFromDetails(Map<String, Object> details) {
+        if (details == null) {
+            return null;
+        }
+        Object deliveryAddress = details.get("delivery_address");
+        if (deliveryAddress instanceof Map) {
+            return ((Map<?, ?>) deliveryAddress).get("city_id");
+        }
+        return details.get("city_id");
     }
 }

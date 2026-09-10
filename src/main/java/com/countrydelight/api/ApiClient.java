@@ -46,8 +46,30 @@ public class ApiClient {
         }
     }
 
+    public void resetMockMode() {
+        this.mockMode = false;
+        System.out.println("Mock mode reset - using real APIs");
+    }
 
+
+    /**
+     * Place order via CMS API
+     *
+     * Frequency handling:
+     * - orderTypes: allowed values "daily", "alternate", "custom", "onetime"
+     * - Per API doc Step-4.1/4.2: order is always placed for the NEXT date.
+     *   One-time orders: order_end_date == order_start_date
+     *   Subscription orders (daily/alternate/custom): order_end_date == null
+     *
+     * saleDate param is accepted for API compatibility but the order is always
+     * created for tomorrow (today+1); the sale date is applied later via the
+     * route_sheet_details / order_detail DB updates (Steps 9-10).
+     */
     public String placeOrder(String customerId, List<Integer> productIds, List<Integer> qty, List<String> orderTypes) throws Exception {
+        return placeOrder(customerId, productIds, qty, orderTypes, null);
+    }
+
+    public String placeOrder(String customerId, List<Integer> productIds, List<Integer> qty, List<String> orderTypes, String saleDate) throws Exception {
         if (customerId == null || productIds == null || qty == null || productIds.size() != qty.size()) {
             throw new IllegalArgumentException("Invalid order parameters");
         }
@@ -56,20 +78,36 @@ public class ApiClient {
         body.put("customer_id", customerId);
         body.put("order_amount", -1);
 
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        LocalDate startDate = LocalDate.now().plusDays(1);
+        String orderStartDate = startDate.format(formatter);
+
         List<Map<String, Object>> subscriptions = new ArrayList<>();
 
         for (int i = 0; i < productIds.size(); i++) {
             Map<String, Object> sub = new HashMap<>();
             sub.put("id", 0);
             sub.put("quantity", qty.get(i));
-            sub.put("order_start_date", LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy")));
-            sub.put("order_type", orderTypes != null && i < orderTypes.size() ? orderTypes.get(i) : "daily");
+            sub.put("order_start_date", orderStartDate);
+
+            // Determine frequency (Step-5)
+            String orderType = orderTypes != null && i < orderTypes.size() ? orderTypes.get(i) : "onetime";
+            Frequency frequency = resolveFrequency(orderType);
+
+            // One-time order: end date == start date. Subscription: end date == null
+            if (frequency.id == 1) {
+                sub.put("order_end_date", orderStartDate);
+            } else {
+                sub.put("order_end_date", null);
+            }
+
             sub.put("source", "CMS");
             sub.put("time_slot", 13);
 
             Map<String, Object> product = new HashMap<>();
             product.put("id", productIds.get(i));
             sub.put("product", product);
+            sub.put("frequency", freqMap(frequency.id, frequency.name));
 
             subscriptions.add(sub);
         }
@@ -77,7 +115,7 @@ public class ApiClient {
         body.put("subscriptions", subscriptions);
 
         Response response = RestAssured.given()
-                .header("Authorization", "Bearer " + getAuthToken())
+                .header("Authorization", getAuthToken())
                 .header("accept", "application/json, text/plain, */*")
                 .contentType(ContentType.JSON)
                 .body(body)
@@ -91,6 +129,32 @@ public class ApiClient {
         return response.getBody().asString();
     }
 
+    private static class Frequency {
+        int id;
+        String name;
+        Frequency(int id, String name) { this.id = id; this.name = name; }
+    }
+
+    private Frequency resolveFrequency(String orderType) {
+        if (orderType == null) return new Frequency(1, "One Time");
+        switch (orderType.toLowerCase()) {
+            case "daily": return new Frequency(2, "Daily");
+            case "alternate": return new Frequency(10, "Alternate");
+            case "custom": return new Frequency(11, "Custom");
+            case "onetime":
+            case "one_time":
+            case "one-time":
+            default: return new Frequency(1, "One Time");
+        }
+    }
+
+    private Map<String, Object> freqMap(int id, String name) {
+        Map<String, Object> freq = new HashMap<>();
+        freq.put("id", id);
+        freq.put("name", name);
+        return freq;
+    }
+
     public Map<String, Object> generateRouteSheet(String customerId) throws Exception {
         if (customerId == null || customerId.trim().isEmpty()) {
             throw new IllegalArgumentException("Customer ID cannot be empty");
@@ -99,7 +163,7 @@ public class ApiClient {
         Response response = RestAssured.given()
                 .header("X-Api-Key", getApiKey())
                 .header("accept", "application/json")
-                .post(getBaseUrl() + "/api/voice/generateRouteSheetByCustomerId?customerId=" + customerId);
+                .get(getBaseUrl() + "/api/voice/generateRouteSheetByCustomerId?customerId=" + customerId);
 
         if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
             throw new RuntimeException("Route sheet generation failed with status " + response.getStatusCode() + 
@@ -111,6 +175,20 @@ public class ApiClient {
     }
 
     public void saleMarking(Long deliveryId, List<Map<String, Object>> products, Double lat, Double lon) throws Exception {
+        saleMarking(deliveryId, products, lat, lon, null, null);
+    }
+
+    /**
+     * Mark sale via Delivery API
+     *
+     * @param deliveryId     ID from route_sheet_details table
+     * @param products       product list (id + quantity from place order API)
+     * @param lat            latitude for delivery location
+     * @param lon            longitude for delivery location
+     * @param deliveryBoy    delivery boy id from route_sheet_details
+     * @param saleDate       sale marking date (dd-MM-yyyy), defaults to today
+     */
+    public void saleMarking(Long deliveryId, List<Map<String, Object>> products, Double lat, Double lon, Integer deliveryBoy, String saleDate) throws Exception {
         if (deliveryId == null || products == null || products.isEmpty()) {
             throw new IllegalArgumentException("Invalid sale marking parameters");
         }
@@ -134,12 +212,16 @@ public class ApiClient {
         location.put("lat", lat != null ? lat : 28.41873333333333);
         location.put("lon", lon != null ? lon : 77.03871166666666);
 
+        // delivery_time is the current delivery time with the sale_marking_date
+        // computed as epoch seconds for saleDate at current time-of-day
+        long deliveryTimeEpoch = computeDeliveryTimeEpoch(saleDate);
+
         Map<String, Object> data = new HashMap<>();
         data.put("delivered", true);
         data.put("delivery", deliveryId);
-        data.put("delivery_boy", 1);
+        data.put("delivery_boy", deliveryBoy != null ? deliveryBoy : 1);
         data.put("delivery_id", deliveryId);
-        data.put("delivery_time", String.valueOf(System.currentTimeMillis() / 1000));
+        data.put("delivery_time", String.valueOf(deliveryTimeEpoch));
         data.put("hold", false);
         data.put("hold_end_date", "");
         data.put("hold_start_date", "");
@@ -162,6 +244,8 @@ public class ApiClient {
         finalBody.put("data", data);
 
         Response response = RestAssured.given()
+                .header("Authorization", getAuthToken())
+                .header("accept", "application/json, text/plain, */*")
                 .contentType(ContentType.JSON)
                 .body(finalBody)
                 .post(getBaseUrl() + "/api/delivery/sale_create");
@@ -173,25 +257,43 @@ public class ApiClient {
     }
 
     /**
-     * Search customer by phone with JWT authentication
+     * Compute the epoch delivery time for the sale marking date.
+     * Uses the sale_marking_date combined with the current time of day.
+     */
+    private long computeDeliveryTimeEpoch(String saleDate) {
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        LocalDate date;
+        try {
+            date = (saleDate != null && !saleDate.trim().isEmpty())
+                    ? LocalDate.parse(saleDate, dateFormatter)
+                    : LocalDate.now();
+        } catch (Exception e) {
+            date = LocalDate.now();
+        }
+
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        java.time.LocalDateTime deliveryDateTime = java.time.LocalDateTime.of(date, now.toLocalTime());
+        return deliveryDateTime.atZone(java.time.ZoneId.systemDefault()).toEpochSecond();
+    }
+
+    /**
+     * Search customer by mobile number using POST /searchCustomer/mobile_number
      */
     public List<Map<String, Object>> searchCustomerByPhone(String phone) throws Exception {
         if (phone == null || phone.trim().isEmpty()) {
             throw new IllegalArgumentException("Phone number cannot be empty");
         }
 
-        // Try real API first
         if (!mockMode && USE_MOCK_API) {
             try {
                 Response response = RestAssured.given()
-                        .header("Authorization", "Bearer " + getAuthToken())
+                        .header("Authorization", getAuthToken())
                         .header("accept", "application/json, text/plain, */*")
-                        .queryParam("phone", phone)
-                        .queryParam("pageNumber", 1)
-                        .queryParam("pageSize", 25)
-                        .queryParam("sortBy", "id")
-                        .queryParam("sortDirection", 1)
-                        .get(getBaseUrl() + "/admin/v1/customers/getCustomer");
+                        .header("content-type", "application/json;charset=utf-8")
+                        .header("origin", getBaseUrl())
+                        .header("referer", envConfig.getAdminUrl())
+                        .pathParam("primaryContact", phone)
+                        .get(getBaseUrl() + "/admin/v1/customers/searchCustomer/{primaryContact}");
 
                 if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
                     throw new RuntimeException("Customer search failed with status " + response.getStatusCode() + 
@@ -199,13 +301,18 @@ public class ApiClient {
                 }
 
                 ObjectMapper mapper = new ObjectMapper();
-                Map<String, Object> responseBody = mapper.readValue(response.getBody().asString(), Map.class);
-                
+                String responseBody = response.getBody().asString();
+
                 List<Map<String, Object>> customers = new ArrayList<>();
-                Object dataObj = responseBody.get("data");
-                
-                if (dataObj instanceof List) {
-                    customers = (List<Map<String, Object>>) dataObj;
+                // Response is a bare array of customer records; fall back to {"data": [...] }
+                try {
+                    customers = mapper.readValue(responseBody, List.class);
+                } catch (Exception e) {
+                    Map<String, Object> responseMap = mapper.readValue(responseBody, Map.class);
+                    Object dataObj = responseMap.get("data");
+                    if (dataObj instanceof List) {
+                        customers = (List<Map<String, Object>>) dataObj;
+                    }
                 }
 
                 return customers;
@@ -218,7 +325,6 @@ public class ApiClient {
             }
         }
         
-        // Use mock API if enabled or real API failed
         return mockApiClient.searchCustomerByPhone(phone);
     }
 
@@ -237,7 +343,7 @@ public class ApiClient {
         if (!mockMode && USE_MOCK_API) {
             try {
                 Response response = RestAssured.given()
-                        .header("Authorization", "Bearer " + getAuthToken())
+                        .header("Authorization", getAuthToken())
                         .header("accept", "application/json, text/plain, */*")
                         .queryParam("customerId", customerId)
                         .queryParam("showOnlyCustomerVisible", true)
@@ -296,7 +402,7 @@ public class ApiClient {
         if (!mockMode && USE_MOCK_API) {
             try {
                 Response response = RestAssured.given()
-                        .header("Authorization", "Bearer " + getAuthToken())
+                        .header("Authorization", getAuthToken())
                         .header("accept", "application/json, text/plain, */*")
                             .get(getBaseUrl() + "/admin/v1/customers/getCustomerDetails/" + db_id);
 
@@ -330,13 +436,13 @@ public class ApiClient {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
             String additionDate = LocalDate.now().format(formatter);
             
-            String url = "https://qa-cms.countrydelight.in/admin/v1/fundManagement/addFunds?additionDate=" + additionDate;
+            String url = getBaseUrl() + "/admin/v1/fundManagement/addFunds?additionDate=" + additionDate;
             
             Map<String, Object> customerData = new HashMap<>();
             customerData.put("customer_id", customerId);
             customerData.put("amount", amount);
             customerData.put("remarks", remarks);
-            customerData.put("payment_type", 6);
+            customerData.put("payment_type", 7);
             customerData.put("new_wallet_balance", amount);
             
             List<Map<String, Object>> customers = new ArrayList<>();
@@ -362,6 +468,15 @@ public class ApiClient {
         } catch (Exception e) {
             System.out.println("⚠ Add funds API call failed: " + e.getMessage());
             return false;
+        }
+    }
+
+    private String urlEncode(String value) {
+        if (value == null) return "";
+        try {
+            return java.net.URLEncoder.encode(value, "UTF-8");
+        } catch (Exception e) {
+            return value;
         }
     }
 }

@@ -16,7 +16,7 @@ public class EnvironmentConfig {
         public String cmsUrl = "https://qa-cms.countrydelight.in";
         public String adminUrl = "https://qa-crm.countrydelight.in/admin/";
         public String apiKey = "uZ8Q7mKp2xVdL4tN9sFjR1cW6yH3bG0aT5qX8eM2nP7rL9kD4vB1zC6hJ0wY3fU_cd_membership";
-        public String authToken = "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIyNDA0IiwiaXNzIjoiQ291bnRyeURlbGlnaHQiLCJzdWIiOiJVc2VyIEF1dGhlbnRpY2F0aW9uIiwiaWF0IjoxNzc1NTU4NjgyLCJleHAiOjE4MDcwOTQ2ODJ9.5DdqflV9u6vbo7oYC-CKpNxptS76LGrlCMieixsb1c0";
+        public String authToken = "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIyNDA0IiwiaXNzIjoiQ291bnRyeURlbGlnaHQiLCJzdWIiOiJVc2VyIEF1dGhlbnRpY2F0aW9uIiwiaWF0IjoxNzg5MDE0ODUwLCJleHAiOjE3ODkwNDcyNTB9.R3y4iaUSpOjdOXBVX7gVCKNUG56sYID-ATbiodoUBRk";
 
         public String getCmsUrl() { return cmsUrl; }
         public void setCmsUrl(String cmsUrl) { this.cmsUrl = cmsUrl; }
@@ -32,7 +32,7 @@ public class EnvironmentConfig {
         public String cmsUrl = "https://uat-cms.countrydelight.in";
         public String adminUrl = "https://uat-crm.countrydelight.in/admin/";
         public String apiKey = "uZ8Q7mKp2xVdL4tN9sFjR1cW6yH3bG0aT5qX8eM2nP7rL9kD4vB1zC6hJ0wY3fU_cd_membership";
-        public String authToken = "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIyNDA0IiwiaXNzIjoiQ291bnRyeURlbGlnaHQiLCJzdWIiOiJVc2VyIEF1dGhlbnRpY2F0aW9uIiwiaWF0IjoxNzc1NTU4NjgyLCJleHAiOjE4MDcwOTQ2ODJ9.5DdqflV9u6vbo7oYC-CKpNxptS76LGrlCMieixsb1c0";
+        public String authToken = "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIyNDA0IiwiaXNzIjoiQ291bnRyeURlbGlnaHQiLCJzdWIiOiJVc2VyIEF1dGhlbnRpY2F0aW9uIiwiaWF0IjoxNzg4OTM3OTUzLCJleHAiOjE3ODg5NzAzNTN9.QzhiVcjxUYY7NGoy4veDzJH2EFnN0oslmjAH3IVl65g";
 
         public String getCmsUrl() { return cmsUrl; }
         public void setCmsUrl(String cmsUrl) { this.cmsUrl = cmsUrl; }

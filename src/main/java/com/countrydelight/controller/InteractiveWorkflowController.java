@@ -232,13 +232,21 @@ public class InteractiveWorkflowController {
             
             workflowService.setSelectedProducts(selectedProducts);
             
+            // Step-8: sale_marking_date (defaults to current date)
+            String saleDate = request.get("saleDate") != null ? request.get("saleDate").toString() : null;
+            if (saleDate == null || saleDate.trim().isEmpty()) {
+                saleDate = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy"));
+            }
+            workflowService.setSaleDate(saleDate);
+            
             // Place order
-            String orderResult = workflowService.placeOrder(customerId, selectedProducts);
+            String orderResult = workflowService.placeOrder(customerId, selectedProducts, saleDate);
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "message", "Order placed successfully",
                 "orderResult", orderResult,
+                "saleDate", saleDate,
                 "nextStep", "Step 8: Generate route sheet"
             ));
         } catch (Exception e) {
@@ -265,9 +273,15 @@ public class InteractiveWorkflowController {
             }
             
             Map<String, Object> routeSheet = workflowService.generateRouteSheet(customerId);
-            Long routeSheetId = workflowService.extractRouteSheetId(routeSheet);
-            
             workflowService.setRouteSheet(routeSheet);
+            Long routeSheetId = workflowService.extractRouteSheetId(routeSheet);
+            if (routeSheetId == null) {
+                // generate route sheet API returns no id -> read it from the DB
+                routeSheetId = workflowService.fetchLatestRouteSheetId(customerId);
+                if (routeSheetId != null) {
+                    workflowService.setRouteSheetId(routeSheetId);
+                }
+            }
             workflowService.setRouteSheetId(routeSheetId);
             
             return ResponseEntity.ok(Map.of(
@@ -299,12 +313,12 @@ public class InteractiveWorkflowController {
                 ));
             }
             
-            workflowService.updateRouteSheetDate(customerId);
+            workflowService.updateRouteSheetDate(customerId, workflowService.getSaleDate());
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Route sheet date updated to today",
-                "nextStep", "Step 10: Update order details date to today"
+                "message", "Route sheet date updated to sale marking date with delivery_boy=26747",
+                "nextStep", "Step 10: Update order details date to sale marking date"
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -315,7 +329,7 @@ public class InteractiveWorkflowController {
     }
 
     /**
-     * Step 10: Update order_details order_start_date to today
+     * Step 10: Update order_details order_start_date to sale marking date
      */
     @PostMapping("/step10-update-order-date")
     public ResponseEntity<?> updateOrderDate() {
@@ -329,11 +343,11 @@ public class InteractiveWorkflowController {
                 ));
             }
             
-            workflowService.updateOrderDetailDate(customerId);
+            workflowService.updateOrderDetailDate(customerId, workflowService.getSaleDate());
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Order detail date updated to today",
+                "message", "Order detail date updated to sale marking date",
                 "nextStep", "Step 11: Mark the sale"
             ));
         } catch (Exception e) {
@@ -386,7 +400,7 @@ public class InteractiveWorkflowController {
                 ));
             }
             
-            workflowService.markSale(deliveryId, products, latitude, longitude);
+            workflowService.markSale(deliveryId, products, latitude, longitude, workflowService.getSaleDate());
             
             return ResponseEntity.ok(Map.of(
                 "success", true,

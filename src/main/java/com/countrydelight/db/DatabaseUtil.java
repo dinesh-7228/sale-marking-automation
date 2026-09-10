@@ -18,17 +18,28 @@ public class DatabaseUtil {
     @Autowired
     private EnvironmentConfig envConfig;
 
-    private Connection getConnection() throws SQLException {
+private Connection getConnection() throws SQLException {
         String dbHost = getEnvValue("db.host", "non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com");
         String dbPort = getEnvValue("db.port", "3306");
-        String dbName = getEnvValue("db.name", "beejapuri_QA");
+        String dbName = getDbName();
         String dbUser = getEnvValue("db.user", "dinesh");
-        String dbPassword = getEnvValue("db.password", "pjq4gry4ir6QSGh");
+        String dbPassword = getEnvValue("db.password", "pjqg4ry4ir6QSGh");
 
         String url = "jdbc:mysql://" + dbHost + ":" + dbPort + "/" + dbName;
         System.out.println("🔌 Database Connection URL: " + url);
         
         return DriverManager.getConnection(url, dbUser, dbPassword);
+    }
+
+    /**
+     * Selects the database schema based on the active environment:
+     * QA -> beejapuri_QA, UAT -> beejapuri_UAT.
+     */
+    private String getDbName() {
+        String envName = envConfig.getEnv();
+        String dbName = envName != null && envName.equalsIgnoreCase("UAT") ? "beejapuri_UAT" : "beejapuri_QA";
+        System.out.println("✓ Using database for " + (envName == null ? "QA" : envName.toUpperCase()) + ": " + dbName);
+        return dbName;
     }
 
     private String getEnvValue(String key, String defaultValue) {
@@ -79,6 +90,39 @@ public class DatabaseUtil {
     }
 
     /**
+     * Resolves the internal DB customer ID from the CMS customer_id.
+     *
+     * The CMS APIs (placeOrder, addFunds, generateRouteSheet) reference the
+     * customer by the search result's customer_id (e.g. 9767981), while the
+     * route_sheet_details / order_detail tables reference the customer by the
+     * DB primary key ID (e.g. 9918305).
+     *
+     * @param cmsCustomerId customer_id from the customer search result (Step-3)
+     * @return the DB ID (customer.ID) for the customer, or null if not found
+     */
+    public String getDbCustomerId(String cmsCustomerId) throws Exception {
+        if (cmsCustomerId == null || cmsCustomerId.trim().isEmpty()) {
+            return null;
+        }
+        String query = "SELECT ID FROM customer WHERE CUSTOMER_ID = ?";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, cmsCustomerId.trim());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String dbId = String.valueOf(rs.getLong("ID"));
+                    System.out.println("✓ Resolved CMS customer_id " + cmsCustomerId + " -> DB ID " + dbId);
+                    return dbId;
+                }
+            }
+            System.out.println("⚠ No DB customer found for CMS customer_id: " + cmsCustomerId);
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to resolve DB customer id for " + cmsCustomerId + ": " + e.getMessage(), e);
+        }
+        return null;
+    }
+
+    /**
      * Fetches customer details from customer_attributes table
      */
     public Map<String, Object> getCustomerAttributes(Long customerId) throws Exception {
@@ -108,124 +152,162 @@ public class DatabaseUtil {
     }
 
     /**
-     * Automatically updates route sheet date from tomorrow to today
-     * Called immediately after route sheet generation
+     * Automatically updates route sheet date to the sale_marking_date
+     * and sets delivery_boy = 26747.
+     * If saleDate is null, defaults to current date.
      * 
-     * Note: Handles both 'delivery_date' and 'DATE' column names
+     * Called immediately after route sheet generation
+     * Handles both 'delivery_date' and 'DATE' column names
      */
     public void updateRouteSheetDate(String customerId) throws Exception {
-        // Try with CUSTOMER column first (correct column name)
-        String query = "UPDATE route_sheet_details SET DATE = CURDATE() " +
-                       "WHERE CUSTOMER = ? AND DATE = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
+        updateRouteSheetDate(customerId, null);
+    }
 
-        try (Connection con = getConnection();
-             PreparedStatement ps = con.prepareStatement(query)) {
-
-            ps.setString(1, customerId);
-            int rowsUpdated = ps.executeUpdate();
-            
-            if (rowsUpdated > 0) {
-                System.out.println("✓ Route sheet date updated to TODAY for customer: " + customerId);
-            } else {
-                System.out.println("⚠ No route sheet found for date correction. Customer: " + customerId);
-            }
+    /**
+     * Updates route sheet date to the specified sale_marking_date
+     * and sets delivery_boy = 26747.
+     *
+     * @param customerId customer id from step-2 customer search
+     * @param saleDate   date string (yyyy-MM-dd or dd-MM-yyyy). Defaults to today if null.
+     */
+    public void updateRouteSheetDate(String customerId, String saleDate) throws Exception {
+        String formattedDate = normalizeDateParam(saleDate);
+        try {
+            updateRouteSheetDateInternal(customerId, formattedDate);
         } catch (SQLException e) {
-            // If column not found, try alternative column name
-            if (e.getMessage() != null && (e.getMessage().contains("Unknown column") || 
+            if (e.getMessage() != null && (e.getMessage().contains("Unknown column") ||
                 e.getMessage().contains("no such column"))) {
                 System.out.println("⚠ Column 'delivery_date' not found, trying 'DATE'...");
-                tryAlternativeUpdateRouteSheetDate(customerId);
+                updateRouteSheetDateAlternative(customerId, formattedDate);
             } else {
-                throw new RuntimeException("CRITICAL: Failed to update route sheet date for customer " + customerId + 
+                throw new RuntimeException("CRITICAL: Failed to update route sheet date for customer " + customerId +
                                          ": " + e.getMessage(), e);
             }
         }
     }
 
-    /**
-     * Alternative: Updates route sheet date using 'DATE' column
-     */
-    private void tryAlternativeUpdateRouteSheetDate(String customerId) throws Exception {
-        String query = "UPDATE route_sheet_details SET `DATE` = CURDATE() " +
-                       "WHERE CUSTOMER = ? AND `DATE` = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
-
+    private void updateRouteSheetDateInternal(String customerId, String dateSql) throws SQLException {
+        // Step-9: target the latest route sheet (ORDER BY ID DESC) and set DELIVERY_BOY = 26747
+        String query = "UPDATE route_sheet_details " +
+                       "SET `DATE` = ?, `DELIVERY_BOY` = 26747 " +
+                       "WHERE CUSTOMER = ? " +
+                       "AND ID = (SELECT * FROM (SELECT MAX(ID) FROM route_sheet_details WHERE CUSTOMER = ?) t)";
         try (Connection con = getConnection();
              PreparedStatement ps = con.prepareStatement(query)) {
-
-            ps.setString(1, customerId);
+            ps.setDate(1, java.sql.Date.valueOf(dateSql));
+            ps.setString(2, customerId);
+            ps.setString(3, customerId);
             int rowsUpdated = ps.executeUpdate();
-            
             if (rowsUpdated > 0) {
-                System.out.println("✓ Route sheet DATE updated to TODAY for customer: " + customerId);
+                System.out.println("✓ Route sheet date updated to " + dateSql + " and delivery_boy=26747 for customer: " + customerId);
             } else {
-                System.out.println("⚠ No route sheet found for alternative date correction. Customer: " + customerId);
+                System.out.println("⚠ No route sheet found for date/delivery_boy update. Customer: " + customerId);
             }
-        } catch (SQLException e) {
-            throw new RuntimeException("CRITICAL: Failed to update route sheet date (both attempts) for customer " + 
-                                     customerId + ": " + e.getMessage(), e);
         }
     }
 
     /**
-     * Automatically updates order detail start date from tomorrow to today
+     * Alternative: Updates route sheet date using only backticked columns
+     */
+    private void updateRouteSheetDateAlternative(String customerId, String dateSql) throws SQLException {
+        String query = "UPDATE route_sheet_details " +
+                       "SET `DATE` = ?, `DELIVERY_BOY` = 26747 " +
+                       "WHERE `CUSTOMER` = ? " +
+                       "AND `ID` = (SELECT * FROM (SELECT MAX(`ID`) FROM route_sheet_details WHERE `CUSTOMER` = ?) t)";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setDate(1, java.sql.Date.valueOf(dateSql));
+            ps.setString(2, customerId);
+            ps.setString(3, customerId);
+            int rowsUpdated = ps.executeUpdate();
+            if (rowsUpdated > 0) {
+                System.out.println("✓ Route sheet `DATE` updated to " + dateSql + " and delivery_boy=26747 for customer: " + customerId);
+            } else {
+                System.out.println("⚠ No route sheet found for alternative date/delivery_boy update. Customer: " + customerId);
+            }
+        }
+    }
+
+    /**
+     * Automatically updates order detail start date to today (sale marking date)
      * Called immediately after order placement
      * 
-     * Handles the requirement: ORDER_START_DATE - INTERVAL 1 DAY
-     * Also handles both 'start_date' and 'ORDER_START_DATE' column names
+     * Sets ORDER_START_DATE = sale_marking_date (today by default)
      */
     public void updateOrderDetailDate(String customerId) throws Exception {
-        // Try with CUSTOMER column (correct column name)
-        String query = "UPDATE order_detail SET ORDER_START_DATE = ORDER_START_DATE - INTERVAL 1 DAY " +
-                       "WHERE CUSTOMER = ? AND STATUS = 'Y' AND DATE(ORDER_START_DATE) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)";
+        updateOrderDetailDate(customerId, null);
+    }
 
-        try (Connection con = getConnection();
-             PreparedStatement ps = con.prepareStatement(query)) {
+    /**
+     * Updates order detail start date to the specified sale_marking_date.
+     *
+     * Per API doc Step-10:
+     * UPDATE order_detail
+     * SET ORDER_START_DATE = ORDER_START_DATE - INTERVAL 1 DAY
+     * WHERE CUSTOMER = ?
+     *   AND STATUS = 'Y'
+     *   AND ORDER_START_DATE >= CURRENT_DATE + INTERVAL 1 DAY
+     *   AND ORDER_START_DATE < CURRENT_DATE + INTERVAL 2 DAY;
+     * 
+     * to the sale marking date (ORDER_START_DATE = sale_marking_date)
+     *
+     * @param customerId customer id from step-2 customer search
+     * @param saleDate   sale marking date (dd-MM-yyyy). Defaults to today if null.
+     */
+    public void updateOrderDetailDate(String customerId, String saleDate) throws Exception {
+        String normalizeDate = normalizeDateParam(saleDate);
+        String whereClause = "WHERE CUSTOMER = ? AND STATUS = 'Y' " +
+                             "AND ORDER_START_DATE >= CURRENT_DATE + INTERVAL 1 DAY " +
+                             "AND ORDER_START_DATE < CURRENT_DATE + INTERVAL 2 DAY";
 
-            ps.setString(1, customerId);
-            int rowsUpdated = ps.executeUpdate();
-            
-            if (rowsUpdated > 0) {
-                System.out.println("✓ Order detail start date updated to TODAY for customer: " + customerId);
-            } else {
-                System.out.println("⚠ No active orders found for date correction. Customer: " + customerId);
+        try {
+            String query = "UPDATE order_detail SET ORDER_START_DATE = ? " + whereClause;
+            try (Connection con = getConnection();
+                 PreparedStatement ps = con.prepareStatement(query)) {
+                ps.setDate(1, java.sql.Date.valueOf(normalizeDate));
+                ps.setString(2, customerId);
+                int rowsUpdated = ps.executeUpdate();
+                if (rowsUpdated > 0) {
+                    System.out.println("✓ Order detail ORDER_START_DATE updated to " + normalizeDate + " for customer: " + customerId);
+                } else {
+                    System.out.println("⚠ No active orders found for date correction. Customer: " + customerId);
+                }
             }
         } catch (SQLException e) {
-            // If column not found, try alternative column name
-            if (e.getMessage() != null && (e.getMessage().contains("Unknown column") || 
+            if (e.getMessage() != null && (e.getMessage().contains("Unknown column") ||
                 e.getMessage().contains("no such column"))) {
-                System.out.println("⚠ Column 'start_date' not found, trying 'ORDER_START_DATE'...");
-                tryAlternativeUpdateOrderDetailDate(customerId);
+                System.out.println("⚠ Column 'ORDER_START_DATE' not found, trying alternative...");
+                tryAlternativeUpdateOrderDetailDate(customerId, normalizeDate);
             } else {
-                throw new RuntimeException("CRITICAL: Failed to update order detail date for customer " + customerId + 
+                throw new RuntimeException("CRITICAL: Failed to update order detail date for customer " + customerId +
                                          ": " + e.getMessage(), e);
             }
         }
     }
 
     /**
-     * Alternative: Updates order detail date using 'ORDER_START_DATE' column
-     * Subtracts 1 day from ORDER_START_DATE as per requirement
+     * Alternative: Updates order detail date using `ORDER_START_DATE` column
+     * Sets ORDER_START_DATE to the sale_marking_date
      */
-    private void tryAlternativeUpdateOrderDetailDate(String customerId) throws Exception {
+    private void tryAlternativeUpdateOrderDetailDate(String customerId, String dateSql) throws Exception {
         String query = "UPDATE order_detail " +
-                       "SET `ORDER_START_DATE` = `ORDER_START_DATE` - INTERVAL 1 DAY " +
+                       "SET `ORDER_START_DATE` = ? " +
                        "WHERE `CUSTOMER` = ? AND `STATUS` = 'Y' " +
                        "AND `ORDER_START_DATE` >= CURRENT_DATE + INTERVAL 1 DAY " +
                        "AND `ORDER_START_DATE` < CURRENT_DATE + INTERVAL 2 DAY";
 
         try (Connection con = getConnection();
              PreparedStatement ps = con.prepareStatement(query)) {
-
-            ps.setString(1, customerId);
+            ps.setDate(1, java.sql.Date.valueOf(dateSql));
+            ps.setString(2, customerId);
             int rowsUpdated = ps.executeUpdate();
-            
             if (rowsUpdated > 0) {
-                System.out.println("✓ Order detail ORDER_START_DATE updated (decreased by 1 day) for customer: " + customerId);
+                System.out.println("✓ Order detail `ORDER_START_DATE` updated to " + dateSql + " for customer: " + customerId);
             } else {
                 System.out.println("⚠ No active orders found for alternative date correction. Customer: " + customerId);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("CRITICAL: Failed to update order detail date (both attempts) for customer " + 
+            throw new RuntimeException("CRITICAL: Failed to update order detail date (both attempts) for customer " +
                                      customerId + ": " + e.getMessage(), e);
         }
     }
@@ -259,6 +341,81 @@ public class DatabaseUtil {
         }
 
         return result;
+    }
+
+    /**
+     * Retrieves the delivery_boy id from route_sheet_details for a customer
+     * Used for the sale marking API (delivery_boy field)
+     *
+     * @param customerId customer id from step-2 customer search
+     * @return delivery boy id, or null if not found
+     */
+    public Integer getDeliveryBoy(String customerId) throws Exception {
+        String query = "SELECT DELIVERY_BOY FROM route_sheet_details " +
+                       "WHERE CUSTOMER = ? ORDER BY ID DESC LIMIT 1";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, customerId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                Integer deliveryBoy = rs.getObject("DELIVERY_BOY") != null ? rs.getInt("DELIVERY_BOY") : null;
+                System.out.println("✓ Delivery boy retrieved for customer " + customerId + ": " + deliveryBoy);
+                return deliveryBoy;
+            }
+            System.out.println("⚠ No route sheet found for delivery boy lookup. Customer: " + customerId);
+        } catch (SQLException e) {
+            System.out.println("⚠ Delivery boy lookup failed: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Fetches the customer's current wallet balance from the latest route sheet
+     * (Step-6 wallet balance check). Read-only.
+     *
+     * @param customerId customer id from step-2 customer search
+     * @return wallet balance, or null if not found
+     */
+    public Double getWalletBalance(String customerId) throws Exception {
+        String query = "SELECT CURRENT_WALLET_BALANCE FROM route_sheet_details " +
+                       "WHERE CUSTOMER = ? ORDER BY ID DESC LIMIT 1";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, customerId);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                Double balance = rs.getObject("CURRENT_WALLET_BALANCE") != null ? rs.getDouble("CURRENT_WALLET_BALANCE") : null;
+                System.out.println("✓ Wallet balance retrieved for customer " + customerId + ": " + balance);
+                return balance;
+            }
+            System.out.println("⚠ No route sheet found for wallet balance lookup. Customer: " + customerId);
+        } catch (SQLException e) {
+            System.out.println("⚠ Wallet balance lookup failed: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Normalizes a sale date string to yyyy-MM-dd format (for java.sql.Date)
+     * Accepts dd-MM-yyyy or yyyy-MM-dd. Defaults to today if null/invalid.
+     */
+    private String normalizeDateParam(String saleDate) {
+        if (saleDate == null || saleDate.trim().isEmpty()) {
+            return LocalDate.now().toString();
+        }
+        String trimmed = saleDate.trim();
+        try {
+            if (trimmed.matches("\\d{2}-\\d{2}-\\d{4}")) {
+                java.time.format.DateTimeFormatter f = java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy");
+                return LocalDate.parse(trimmed, f).toString();
+            }
+            if (trimmed.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                return LocalDate.parse(trimmed).toString();
+            }
+        } catch (Exception e) {
+            System.out.println("⚠ Invalid sale date '" + saleDate + "', defaulting to today");
+        }
+        return LocalDate.now().toString();
     }
 
     /**
@@ -300,90 +457,71 @@ public class DatabaseUtil {
 
     /**
      * Inserts a sales record linking route sheet and product
-     * Uses sale_distribution_detail table for validation
+     * Uses sale_distribution_detail table for validation.
+     * A sale_distribution_detail row is delivery-level (one per route sheet
+     * detail), keyed by ROUTE_SHEET_DETAILS. If the sale_create API (Step-11)
+     * already recorded the delivery, this is a no-op (idempotent).
      */
-    public void insertSaleRecord(Long routeSheetDetailId, Integer productId, Integer quantity) throws Exception {
-        String query = "INSERT INTO sale_distribution_detail (route_sheet_detail_id, product_id, quantity, created_date) " +
-                       "VALUES (?, ?, ?, NOW())";
-
-        try (Connection con = getConnection();
-             PreparedStatement ps = con.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
-
-            ps.setLong(1, routeSheetDetailId);
-            ps.setInt(2, productId);
-            ps.setInt(3, quantity);
-            int rowsInserted = ps.executeUpdate();
-            
-            if (rowsInserted > 0) {
-                ResultSet generatedKeys = ps.getGeneratedKeys();
-                if (generatedKeys.next()) {
-                    long saleId = generatedKeys.getLong(1);
-                    System.out.println("✓ Sale record inserted. Sale ID: " + saleId + 
-                                     ", Product ID: " + productId + ", Quantity: " + quantity);
-                }
-            } else {
-                throw new RuntimeException("Failed to insert sale record for product: " + productId);
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("CRITICAL: Failed to insert sales record for product " + productId + 
-                                     ": " + e.getMessage(), e);
-        }
+    public void insertSaleRecord(Long routeSheetDetailId) throws Exception {
+        ensureSaleDistributionRow(routeSheetDetailId);
     }
 
     /**
-     * Inserts multiple sales records in transaction
-     * All succeed or all fail together
+     * Inserts the sale distribution row for a route sheet detail if not already
+     * recorded by the sale_create API. One row per delivery (the table has no
+     * product/quantity columns), so it is called once per route sheet detail.
+     */
+    private Long ensureSaleDistributionRow(Long routeSheetDetailId) throws Exception {
+        if (routeSheetDetailId == null) {
+            throw new IllegalArgumentException("Route sheet detail id is required for sale recording");
+        }
+
+        try (Connection con = getConnection()) {
+            String checkSql = "SELECT COUNT(*) FROM sale_distribution_detail WHERE ROUTE_SHEET_DETAILS = ?";
+            try (PreparedStatement ps = con.prepareStatement(checkSql)) {
+                ps.setLong(1, routeSheetDetailId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next() && rs.getInt(1) > 0) {
+                        System.out.println("✓ Sale already recorded for route sheet detail: " + routeSheetDetailId + " (no-op)");
+                        return routeSheetDetailId;
+                    }
+                }
+            }
+
+            String insertSql = "INSERT INTO sale_distribution_detail " +
+                               "(ROUTE_SHEET_DETAILS, CUSTOMER, ROUTE_SHEET, ROUTE, FRANCHISE, DELIVERY_BOY, DATE, DELIVERED, TO_BE_DELIVERED, CREATED_DATE) " +
+                               "SELECT ID, CUSTOMER, ROUTE_SHEET, ROUTE, FRANCHISE, DELIVERY_BOY, DATE, 1, 'N', NOW() " +
+                               "FROM route_sheet_details WHERE ID = ?";
+            try (PreparedStatement ps = con.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setLong(1, routeSheetDetailId);
+                int rows = ps.executeUpdate();
+                if (rows > 0) {
+                    try (ResultSet keys = ps.getGeneratedKeys()) {
+                        if (keys.next()) {
+                            System.out.println("✓ Sale distribution row inserted. ID: " + keys.getLong(1) + " for route sheet detail: " + routeSheetDetailId);
+                        }
+                    }
+                    return routeSheetDetailId;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to record sale for route sheet detail " + routeSheetDetailId +
+                                     ": " + e.getMessage(), e);
+        }
+        return null;
+    }
+
+    /**
+     * Records sales for a batch of products against a route sheet detail.
+     * The sale record is delivery-level (per route sheet detail), so a single
+     * idempotent row is ensured per detail.
      */
     public void insertSalesRecordsBatch(Long routeSheetDetailId, List<Map<String, Object>> products) throws Exception {
         if (routeSheetDetailId == null || products == null || products.isEmpty()) {
             throw new IllegalArgumentException("Invalid parameters for batch sales insertion");
         }
-
-        String query = "INSERT INTO sale_distribution_detail (route_sheet_detail_id, product_id, quantity, created_date) " +
-                       "VALUES (?, ?, ?, NOW())";
-
-        Connection con = null;
-        try {
-            con = getConnection();
-            con.setAutoCommit(false);  // Start transaction
-            
-            PreparedStatement ps = con.prepareStatement(query);
-            
-            for (Map<String, Object> product : products) {
-                Integer productId = ((Number) product.get("id")).intValue();
-                Integer quantity = ((Number) product.get("quantity")).intValue();
-                
-                ps.setLong(1, routeSheetDetailId);
-                ps.setInt(2, productId);
-                ps.setInt(3, quantity);
-                ps.addBatch();
-            }
-            
-            int[] rowsInserted = ps.executeBatch();
-            con.commit();
-            
-            System.out.println("✓ Batch sales records inserted. Count: " + rowsInserted.length);
-            
-        } catch (SQLException e) {
-            if (con != null) {
-                try {
-                    con.rollback();
-                    System.out.println("⚠ Transaction rolled back due to error");
-                } catch (SQLException rollbackEx) {
-                    System.out.println("⚠ Rollback failed: " + rollbackEx.getMessage());
-                }
-            }
-            throw new RuntimeException("CRITICAL: Failed to insert batch sales records: " + e.getMessage(), e);
-        } finally {
-            if (con != null) {
-                try {
-                    con.setAutoCommit(true);
-                    con.close();
-                } catch (SQLException e) {
-                    System.out.println("⚠ Error closing connection: " + e.getMessage());
-                }
-            }
-        }
+        System.out.println("Recording sale distribution for route sheet detail: " + routeSheetDetailId + " (" + products.size() + " product(s))");
+        ensureSaleDistributionRow(routeSheetDetailId);
     }
 
     /**
@@ -394,7 +532,7 @@ public class DatabaseUtil {
         
         try (Connection con = getConnection()) {
             String query = "SELECT COUNT(*) as count FROM sale_distribution_detail " +
-                          "WHERE route_sheet_detail_id = ? AND created_date >= CURDATE()";
+                          "WHERE ROUTE_SHEET_DETAILS = ? AND DATE >= CURDATE()";
             PreparedStatement ps = con.prepareStatement(query);
             ps.setLong(1, routeSheetId);
             ResultSet rs = ps.executeQuery();
@@ -546,7 +684,49 @@ public class DatabaseUtil {
         return customerDetails;
     }
 
-    public Map<String, Object> verifyDateUpdates(String customerId) {
-        return Collections.emptyMap();
+    public Map<String, Object> verifyDateUpdates(String customerId, String saleDate) {
+        Map<String, Object> verification = new HashMap<>();
+        String dateSql = normalizeDateParam(saleDate);
+
+        try (Connection con = getConnection()) {
+            // Route sheet date check (Step-9)
+            String rsCheck = "SELECT DATE FROM route_sheet_details WHERE CUSTOMER = ? ORDER BY ID DESC LIMIT 1";
+            try (PreparedStatement ps = con.prepareStatement(rsCheck)) {
+                ps.setString(1, customerId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        java.sql.Date dbDate = rs.getDate("DATE");
+                        boolean ok = dbDate != null && dbDate.toLocalDate().toString().equals(dateSql);
+                        verification.put("routeSheetUpdated", ok);
+                        System.out.println("✓ Route sheet date: " + dbDate + " (expected " + dateSql + ") -> " + ok);
+                    } else {
+                        verification.put("routeSheetUpdated", false);
+                        System.out.println("⚠ No route sheet found for date verification. Customer: " + customerId);
+                    }
+                }
+            }
+
+            // Order detail date check (Step-10)
+            String odCheck = "SELECT ORDER_START_DATE FROM order_detail WHERE CUSTOMER = ? AND STATUS = 'Y' ORDER BY ID DESC LIMIT 1";
+            try (PreparedStatement ps = con.prepareStatement(odCheck)) {
+                ps.setString(1, customerId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        java.sql.Date dbDate = rs.getDate("ORDER_START_DATE");
+                        boolean ok = dbDate != null && dbDate.toLocalDate().toString().equals(dateSql);
+                        verification.put("orderDetailUpdated", ok);
+                        System.out.println("✓ Order start date: " + dbDate + " (expected " + dateSql + ") -> " + ok);
+                    } else {
+                        verification.put("orderDetailUpdated", false);
+                        System.out.println("⚠ No active order found for date verification. Customer: " + customerId);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("⚠ Date update verification failed: " + e.getMessage());
+            verification.put("verificationFailed", true);
+        }
+
+        return verification;
     }
 }

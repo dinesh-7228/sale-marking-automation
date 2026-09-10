@@ -461,44 +461,50 @@
 
         function displayCustomers(customers) {
             const customerList = document.getElementById('customerList');
-            customerList.innerHTML = customers.map(c => `
-                <div class="product-item" onclick="selectCustomer({
-                    db_id: '${c.db_id}', 
-                    name: '${c.name}', 
-                    city_id: ${c.city_id},
-                    franchise_id: '${c.FIRST_NAME || ''}'
-                })">
-                    <div style="flex: 1;">
-                        <div class="product-name">${c.name || 'Unknown'}</div>
-                        <div class="product-meta">Phone: ${c.PRIMARY_CONTACT_NUMBER} | DB ID: ${c.id}</div>
-<!--                        <div class="product-meta">City: ${c.city || 'N/A'} | Franchise: ${c.franchise || 'Not Set'}</div>-->
+            customerList.innerHTML = customers.map(c => {
+                const fullName = (c.FIRST_NAME || '') + (c.LAST_NAME ? ' ' + c.LAST_NAME : '');
+                const area = c.AREA || (c.attributes && c.attributes.length > 0 ? c.attributes[0].AREA : 'N/A');
+                const franchise = c.FRANCHISE || (c.attributes && c.attributes.length > 0 ? c.attributes[0].FRANCHISE : 'Not Set');
+                const city = c.CITY || (c.attributes && c.attributes.length > 0 ? c.attributes[0].CITY : 'N/A');
+                
+                return `
+                    <div class="product-item" style="cursor: pointer;" onclick="selectCustomer({
+                        id: ${c.ID}, 
+                        customerId: '${c.CUSTOMER_ID || ''}',
+                        name: '${fullName}', 
+                        phone: '${c.PRIMARY_CONTACT_NUMBER || ''}',
+                        email: '${c.EMAIL || ''}',
+                        area: '${area}',
+                        franchise: '${franchise}',
+                        city: '${city}',
+                        attributes: ${JSON.stringify(c.attributes || [])}
+                    })">
+                        <div style="flex: 1;">
+                            <div class="product-name">${fullName || 'Unknown'}</div>
+                            <div class="product-meta">📱 Phone: ${c.PRIMARY_CONTACT_NUMBER}</div>
+                            <div class="product-meta">📍 Area: ${area} | 🏢 Franchise: ${franchise}</div>
+                            <div class="product-meta">🏙️ City: ${city}</div>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
             document.getElementById('customerResults').style.display = 'block';
         }
 
-<!--        function selectCustomer(customer) {-->
-<!--            if (!customer.city_id) {-->
-<!--                showAlert('This customer has no city assigned', 'error');-->
-<!--                return;-->
-<!--            }-->
-<!--            if (!customer.franchise_id) {-->
-<!--                showAlert('Please update franchise information', 'warning');-->
-<!--            }-->
-<!--            selectedCustomer = customer;-->
-<!--            document.getElementById('summaryCustomerName').textContent = customer.name;-->
-<!--            document.getElementById('summaryCityId').textContent = customer.city_id;-->
-<!--            document.getElementById('customerSummary').style.display = 'block';-->
-<!--            document.getElementById('customerSearch').style.display = 'none';-->
-<!--            document.getElementById('productSelection').style.display = 'block';-->
-<!--            fetchProducts();-->
-<!--        }-->
+        function selectCustomer(customer) {
+            selectedCustomer = customer;
+            document.getElementById('summaryCustomerName').textContent = customer.name;
+            document.getElementById('summaryCityId').textContent = customer.city;
+            document.getElementById('customerSummary').style.display = 'block';
+            document.getElementById('customerSearch').style.display = 'none';
+            document.getElementById('productSelection').style.display = 'block';
+            fetchProducts();
+        }
 
         async function fetchProducts() {
             showLoading('Fetching products...');
             try {
-                const response = await fetch(`/api/product/fetch?customerId=${selectedCustomer.db_id}&cityId=${selectedCustomer.city_id}`);
+                const response = await fetch(`/api/product/fetch?customerId=${selectedCustomer.id}&cityId=${selectedCustomer.city}`);
                 const data = await response.json();
                 hideLoading();
                 if (data.success) {
@@ -567,9 +573,9 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        customerId: selectedCustomer.db_id,
+                        customerId: selectedCustomer.customerId,
                         customerName: selectedCustomer.name,
-                        cityId: selectedCustomer.city_id,
+                        cityId: selectedCustomer.city,
                         latitude: null,
                         longitude: null,
                         products: selectedProducts
