@@ -16,12 +16,25 @@ public class ProductController {
     private ProductService productService;
 
     @GetMapping("/fetch")
-    public ResponseEntity<?> fetchProducts(@RequestParam String customerId, @RequestParam Integer cityId) {
+    public ResponseEntity<?> fetchProducts(@RequestParam String customerId,
+                                           @RequestParam(required = false) String cityId) {
         try {
-            List<Map<String, Object>> products = productService.fetchProducts(customerId, cityId);
+            Integer resolvedCityId = null;
+            if (cityId != null && !cityId.trim().isEmpty()) {
+                resolvedCityId = Integer.parseInt(cityId.trim());
+                if (resolvedCityId <= 0) {
+                    resolvedCityId = null;
+                }
+            }
+            List<Map<String, Object>> products = productService.fetchProducts(customerId, resolvedCityId);
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "data", products
+            ));
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Invalid parameters: cityId must be a number"
             ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of(

@@ -9,7 +9,9 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // static/ takes precedence; templates/ is only a fallback and must not
+        // shadow the real static assets (index.html).
         registry.addResourceHandler("/**")
-                .addResourceLocations("classpath:/templates/", "classpath:/static/");
+                .addResourceLocations("classpath:/static/", "classpath:/templates/");
     }
 }

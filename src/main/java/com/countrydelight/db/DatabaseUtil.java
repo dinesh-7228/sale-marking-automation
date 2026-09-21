@@ -19,16 +19,301 @@ public class DatabaseUtil {
     private EnvironmentConfig envConfig;
 
 private Connection getConnection() throws SQLException {
-        String dbHost = getEnvValue("db.host", "non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com");
-        String dbPort = getEnvValue("db.port", "3306");
-        String dbName = getDbName();
-        String dbUser = getEnvValue("db.user", "dinesh");
-        String dbPassword = getEnvValue("db.password", "pjqg4ry4ir6QSGh");
+        return getConnectionForDatabase(getDbName());
+    }
+
+    /**
+     * Opens a JDBC connection to an arbitrary database on the shared RDS host.
+     * Used by features that need to touch multiple schemas (e.g. complaint cleanup
+     * across complaintmanagement_* / beejapuri_* / rapiddelivery_* databases).
+     */
+    public Connection getConnectionForDatabase(String dbName) throws SQLException {
+        // Rapiddelivery databases live on a separate RDS host with dedicated credentials.
+        boolean rapidDb = dbName != null && dbName.toLowerCase().startsWith("rapiddelivery");
+
+        String dbHost;
+        String dbPort;
+        String dbUser;
+        String dbPassword;
+
+        if (rapidDb) {
+            dbHost = getEnvValue("db.rapid.host", "non-prod-app-rapid-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com");
+            dbPort = getEnvValue("db.rapid.port", "3306");
+            dbUser = getEnvValue("db.rapid.user", "dinesh");
+            dbPassword = getEnvValue("db.rapid.password", "3GGscfBMBH3LP4v");
+        } else {
+            dbHost = getEnvValue("db.host", "non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com");
+            dbPort = getEnvValue("db.port", "3306");
+            dbUser = getEnvValue("db.user", "dinesh");
+            dbPassword = getEnvValue("db.password", "pjq4gry4ir6QSGh");
+        }
 
         String url = "jdbc:mysql://" + dbHost + ":" + dbPort + "/" + dbName;
         System.out.println("🔌 Database Connection URL: " + url);
-        
+
         return DriverManager.getConnection(url, dbUser, dbPassword);
+    }
+
+    /**
+     * Selects the rapiddelivery database schema based on the active environment
+     * used by the Rapid Sale Marking flow:
+     * QA -> rapiddelivery_QA, UAT -> rapiddelivery_UAT.
+     */
+    public String getRapidDeliveryDbName() {
+        String envName = envConfig.getEnv();
+        String dbName = envName != null && envName.equalsIgnoreCase("UAT") ? "rapiddelivery_UAT" : "rapiddelivery_QA";
+        System.out.println("✓ Using rapiddelivery database for " + (envName == null ? "QA" : envName.toUpperCase()) + ": " + dbName);
+        return dbName;
+    }
+
+    /**
+     * Fetches all addresses of a customer from the rapiddelivery database
+     * (rapiddelivery_QA / rapiddelivery_UAT) ordered by id DESC
+     * so the newest address is auto-selected first.
+     *
+     * @param customerId the customer DB id (e.g. 9935686)
+     */
+    public List<Map<String, Object>> getAddressesByCustomer(String customerId) throws Exception {
+        String dbName = getRapidDeliveryDbName();
+        String query = "SELECT * FROM address a WHERE a.CUSTOMER = ? ORDER BY a.id DESC";
+        List<Map<String, Object>> addresses = new ArrayList<>();
+
+        try (Connection con = getConnectionForDatabase(dbName);
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    addresses.add(mapRapidRow(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to fetch addresses for customer " + customerId + " from " + dbName + ": " + e.getMessage(), e);
+        }
+        System.out.println("✓ Fetched " + addresses.size() + " address(es) for customer " + customerId + " from " + dbName);
+        return addresses;
+    }
+
+    /**
+     * Fetches a single address row by its id from the rapiddelivery database.
+     *
+     * @param addressId the address row id
+     * @return the address row map (lowercase keys) or null if not found
+     */
+    public Map<String, Object> getAddressById(Integer addressId) throws Exception {
+        String dbName = getRapidDeliveryDbName();
+        String query = "SELECT * FROM address a WHERE a.ID = ?";
+        try (Connection con = getConnectionForDatabase(dbName);
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setInt(1, addressId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapRapidRow(rs);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to fetch address " + addressId + " from " + dbName + ": " + e.getMessage(), e);
+        }
+        System.out.println("⚠ No address found with id " + addressId);
+        return null;
+    }
+
+    /**
+     * Updates the FRANCHISE of a specific address in the rapiddelivery
+     * database. Used to normalize the selected (newest) address's franchise to
+     * the target franchise before placing the rapid order.
+     *
+     * @param addressId  the address row id
+     * @param franchise  the new franchise id to set
+     * @return true when a row was updated
+     */
+    public boolean updateAddressFranchise(Integer addressId, Integer franchise) throws Exception {
+        String dbName = getRapidDeliveryDbName();
+        String query = "UPDATE address a SET a.FRANCHISE = ? WHERE a.ID = ?";
+        try (Connection con = getConnectionForDatabase(dbName);
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setInt(1, franchise);
+            ps.setInt(2, addressId);
+            int updated = ps.executeUpdate();
+            System.out.println("✓ Updated address " + addressId + " franchise -> " + franchise + " (" + updated + " row(s)) in " + dbName);
+            return updated > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to update franchise for address " + addressId + ": " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Fetches the franchise products mapping (product_franchise_detail) for a
+     * franchise from the rapiddelivery database, active rows only, id DESC.
+     *
+     * @param franchiseId franchise id resolved from the customer's latest address
+     */
+    public List<Map<String, Object>> getProductFranchiseDetails(Integer franchiseId) throws Exception {
+        String dbName = getRapidDeliveryDbName();
+        String query = "SELECT * FROM product_franchise_detail pfd WHERE pfd.FRANCHISE = ? ORDER BY pfd.id DESC";
+        List<Map<String, Object>> details = new ArrayList<>();
+
+        try (Connection con = getConnectionForDatabase(dbName);
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setInt(1, franchiseId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    details.add(mapRapidRow(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to fetch product_franchise_detail for franchise " + franchiseId + " from " + dbName + ": " + e.getMessage(), e);
+        }
+        System.out.println("✓ Fetched " + details.size() + " product_franchise_detail row(s) for franchise " + franchiseId + " from " + dbName);
+        return details;
+    }
+
+    /**
+     * Fetches full product records for the given product ids from the
+     * rapiddelivery `product` table (SELECT p.* FROM product WHERE ID IN (...)).
+     *
+     * @param productIds product ids collected from product_franchise_detail
+     */
+    public List<Map<String, Object>> getProductsByIds(List<Integer> productIds) throws Exception {
+        String dbName = getRapidDeliveryDbName();
+        List<Map<String, Object>> products = new ArrayList<>();
+        if (productIds == null || productIds.isEmpty()) {
+            return products;
+        }
+
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < productIds.size(); i++) {
+            if (i > 0) placeholders.append(",");
+            placeholders.append("?");
+        }
+        String query = "SELECT p.* FROM product p WHERE p.ID IN (" + placeholders + ")";
+
+        try (Connection con = getConnectionForDatabase(dbName);
+             PreparedStatement ps = con.prepareStatement(query)) {
+            for (int i = 0; i < productIds.size(); i++) {
+                ps.setInt(i + 1, productIds.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    products.add(mapRapidRow(rs));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to fetch products by ids from " + dbName + ": " + e.getMessage(), e);
+        }
+        System.out.println("✓ Fetched " + products.size() + " product(s) by id from " + dbName);
+        return products;
+    }
+
+    /**
+     * Fetches the latest customer token (refresh_token) from the customer_token
+     * table in the regular beejapuri database for the given customer DB id.
+     *
+     * @param customerId the customer DB id (e.g. 9935686)
+     * @return the TOKEN string (refresh token), or null if not found
+     */
+    public String getCustomerToken(String customerId) throws Exception {
+        String query = "SELECT * FROM customer_token ct WHERE ct.CUSTOMER = ? ORDER BY ct.id DESC LIMIT 1";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String token = rs.getString("TOKEN");
+                    System.out.println("✓ Latest customer token found for customer " + customerId);
+                    return token;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to fetch customer token for " + customerId + ": " + e.getMessage(), e);
+        }
+        System.out.println("⚠ No customer_token found for customer " + customerId);
+        return null;
+    }
+
+    /**
+     * Fetches the latest already-placed order for a customer from the
+     * rapiddelivery database. Used by the "Only Sale Mark" scenario where the
+     * order was already placed (by the customer/app) and only the sale marking
+     * automation needs to run.
+     *
+     * @param customerId the customer DB id (e.g. 9935686)
+     * @return the latest order row map (lowercase keys) or null if not found
+     */
+    public Map<String, Object> getLatestOrderByCustomer(String customerId) throws Exception {
+        String dbName = getRapidDeliveryDbName();
+        String query = "SELECT * FROM `order` o WHERE o.CUSTOMER = ? ORDER BY o.id DESC LIMIT 1";
+        try (Connection con = getConnectionForDatabase(dbName);
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Map<String, Object> row = mapRapidRow(rs);
+                    System.out.println("✓ Latest rapid order found for customer " + customerId + " -> id " + row.get("id") + " (" + row.get("order_number") + ")");
+                    return row;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to fetch latest order for customer " + customerId + ": " + e.getMessage(), e);
+        }
+        System.out.println("⚠ No rapid order found for customer " + customerId);
+        return null;
+    }
+
+    /**
+     * Fetches the product_franchise_detail row for a given product + franchise
+     * from the rapiddelivery database. Used to build the rapid order payload
+     * (category_id, mrp, product_franchise_detail_id, selling_price, ...).
+     *
+     * @param productId   the product id
+     * @param franchiseId the franchise id resolved from the customer's address
+     * @return the pfd row map (lowercase keys) or null if not found
+     */
+    public Map<String, Object> getProductFranchiseDetailByProductAndFranchise(Integer productId, Integer franchiseId) throws Exception {
+        String dbName = getRapidDeliveryDbName();
+        String query = "SELECT * FROM product_franchise_detail pfd WHERE pfd.PRODUCT = ? AND pfd.FRANCHISE = ? ORDER BY pfd.id DESC LIMIT 1";
+        try (Connection con = getConnectionForDatabase(dbName);
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setInt(1, productId);
+            ps.setInt(2, franchiseId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Map<String, Object> row = mapRapidRow(rs);
+                    System.out.println("✓ pfd row found: product " + productId + ", franchise " + franchiseId + " -> id " + row.get("id"));
+                    return row;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to fetch pfd for product " + productId + " franchise " + franchiseId + ": " + e.getMessage(), e);
+        }
+        System.out.println("⚠ No product_franchise_detail found for product " + productId + " franchise " + franchiseId);
+        return null;
+    }
+
+    /**
+     * Converts a rapiddelivery ResultSet row into a map with lowercase keys,
+     * converting BIT(1) columns to booleans and skipping binary/geometry
+     * columns (e.g. the address LOCATION point) to keep JSON responses clean.
+     */
+    private Map<String, Object> mapRapidRow(ResultSet rs) throws SQLException {
+        Map<String, Object> row = new HashMap<>();
+        ResultSetMetaData meta = rs.getMetaData();
+        for (int i = 1; i <= meta.getColumnCount(); i++) {
+            String column = meta.getColumnName(i);
+            int type = meta.getColumnType(i);
+            Object value = rs.getObject(i);
+
+            if (value instanceof byte[] && (type == Types.LONGVARBINARY || type == Types.BLOB
+                    || type == Types.BINARY || type == Types.VARBINARY)) {
+                // Skip blob/geometry columns (e.g. LOCATION point) for clean JSON
+                continue;
+            }
+            if (value instanceof byte[]) {
+                byte[] bytes = (byte[]) value;
+                value = bytes.length > 0 && bytes[0] != 0;
+            }
+            row.put(column.toLowerCase(), value);
+        }
+        return row;
     }
 
     /**
@@ -313,6 +598,91 @@ private Connection getConnection() throws SQLException {
     }
 
     /**
+     * Checks if a route sheet exists for the customer for tomorrow's date.
+     * Returns the route_sheet_details ID if found, null otherwise.
+     */
+    public Long getRouteSheetIdForTomorrow(String customerId) throws Exception {
+        return getRouteSheetIdForDate(customerId, LocalDate.now().plusDays(1).toString());
+    }
+
+    /**
+     * Checks if a route sheet exists for the customer for the given sale date.
+     * Returns the route_sheet_details ID if found, null otherwise.
+     *
+     * @param customerId customer id from step-2 customer search
+     * @param saleDate   sale marking date (dd-MM-yyyy or yyyy-MM-dd)
+     */
+    public Long getRouteSheetIdForDate(String customerId, String saleDate) throws Exception {
+        String dateSql = normalizeDateParam(saleDate);
+        String query = "SELECT ID FROM route_sheet_details " +
+                       "WHERE CUSTOMER = ? AND DATE = ? ORDER BY ID DESC LIMIT 1";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, customerId);
+            ps.setString(2, dateSql);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Long id = rs.getLong("ID");
+                    System.out.println("✓ Route sheet found for customer " + customerId + " for date (" + dateSql + "). ID: " + id);
+                    return id;
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("⚠ Route sheet date check failed: " + e.getMessage());
+        }
+        System.out.println("⚠ No route sheet found for customer " + customerId + " for date (" + dateSql + ")");
+        return null;
+    }
+
+    /**
+     * Returns the latest route_sheet_details ID for the customer, or null if none exists.
+     */
+    public Long getLatestRouteSheetId(String customerId) throws Exception {
+        String query = "SELECT ID FROM route_sheet_details " +
+                       "WHERE CUSTOMER = ? ORDER BY ID DESC LIMIT 1";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong("ID");
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("⚠ Latest route sheet lookup failed: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Updates a specific route sheet's date to the sale marking date
+     * and sets delivery_boy = 26747.
+     *
+     * @param routeSheetId route_sheet_details ID to update
+     * @param saleDate     sale marking date (dd-MM-yyyy or yyyy-MM-dd). Defaults to today if null.
+     */
+    public void updateRouteSheetDateById(Long routeSheetId, String saleDate) throws Exception {
+        if (routeSheetId == null) {
+            throw new IllegalArgumentException("Route sheet ID is required");
+        }
+        String formattedDate = normalizeDateParam(saleDate);
+        String query = "UPDATE route_sheet_details SET `DATE` = ?, `DELIVERY_BOY` = 26747 WHERE ID = ?";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setDate(1, java.sql.Date.valueOf(formattedDate));
+            ps.setLong(2, routeSheetId);
+            int rowsUpdated = ps.executeUpdate();
+            if (rowsUpdated > 0) {
+                System.out.println("✓ Route sheet " + routeSheetId + " date updated to " + formattedDate + " and delivery_boy=26747");
+            } else {
+                System.out.println("⚠ No route sheet found with ID " + routeSheetId + " for date update");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to update route sheet " + routeSheetId + " date: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Retrieves the latest route sheet details for a customer
      * Used to get the ID for sales marking
      */
@@ -393,6 +763,196 @@ private Connection getConnection() throws SQLException {
             System.out.println("⚠ Wallet balance lookup failed: " + e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * Fetches active products available in a given city.
+     * Mirrors the CMS /admin/v1/products/fetchProducts/V2 response structure.
+     */
+    public List<Map<String, Object>> fetchProductsFromDb(String customerId, Integer cityId) throws Exception {
+        List<Map<String, Object>> products = new ArrayList<>();
+        String query = "SELECT * FROM product p " +
+                       "WHERE FIND_IN_SET(?, p.CITIES) > 0 " +
+                       "AND p.customer_visible = 1 " +
+                       "ORDER BY p.id DESC";
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setInt(1, cityId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> product = new HashMap<>();
+                    product.put("id", rs.getLong("ID"));
+                    product.put("name", rs.getString("NAME"));
+                    product.put("price", rs.getObject("price"));
+                    product.put("image", rs.getString("IMAGE"));
+                    product.put("division", rs.getString("DIVISION"));
+                    product.put("maxOrder", rs.getObject("MAX_ORDER"));
+                    product.put("unitOfMeasurement", rs.getString("UNIT_OF_MEASUREMENT"));
+                    product.put("sku", rs.getString("SKU"));
+                    product.put("barcode", rs.getString("BARCODE"));
+                    products.add(product);
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("⚠ Product fetch from DB failed: " + e.getMessage());
+        }
+        return products;
+    }
+
+    /**
+     * Resolves the numeric city id for a customer using the database.
+     * Does not depend on the CMS API (which may be offline).
+     *
+     * Resolution paths (in order):
+     *  1. customer_attributes.FRANCHISE -> franchise.FRANCHISE_CITY
+     *  2. customer.DELIVERY_ADDRESS (address.ID) -> address.CITY
+     *
+     * @param cmsCustomerId customer_id from the customer search result
+     * @return the numeric city id, or null if it cannot be determined
+     */
+    public Integer resolveCustomerCityId(String cmsCustomerId) throws Exception {
+        if (cmsCustomerId == null || cmsCustomerId.trim().isEmpty()) {
+            return null;
+        }
+        String dbCustomerId = getDbCustomerId(cmsCustomerId);
+        if (dbCustomerId == null) {
+            dbCustomerId = cmsCustomerId;
+        }
+
+        // Path 1: customer_attributes.FRANCHISE -> franchise.FRANCHISE_CITY
+        String q1 = "SELECT f.FRANCHISE_CITY FROM customer_attributes ca " +
+                    "JOIN franchise f ON f.ID = ca.FRANCHISE " +
+                    "WHERE ca.CUSTOMER = ? AND f.FRANCHISE_CITY IS NOT NULL AND f.FRANCHISE_CITY > 0 " +
+                    "ORDER BY ca.ID DESC LIMIT 1";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(q1)) {
+            ps.setString(1, dbCustomerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Integer city = rs.getObject(1) != null ? rs.getInt(1) : null;
+                    if (city != null && city > 0) {
+                        System.out.println("✓ City " + city + " resolved via franchise for customer " + cmsCustomerId);
+                        return city;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("⚠ Franchise city resolution failed for " + cmsCustomerId + ": " + e.getMessage());
+        }
+
+        // Path 2: customer.DELIVERY_ADDRESS (address.ID) -> address.CITY
+        String q2 = "SELECT a.CITY FROM customer c JOIN address a ON a.ID = c.DELIVERY_ADDRESS " +
+                    "WHERE c.ID = ? AND a.CITY IS NOT NULL AND a.CITY > 0 LIMIT 1";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(q2)) {
+            ps.setString(1, dbCustomerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Integer city = rs.getObject(1) != null ? rs.getInt(1) : null;
+                    if (city != null && city > 0) {
+                        System.out.println("✓ City " + city + " resolved via delivery address for customer " + cmsCustomerId);
+                        return city;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("⚠ Address city resolution failed for " + cmsCustomerId + ": " + e.getMessage());
+        }
+
+        System.out.println("⚠ Could not resolve a city id for customer " + cmsCustomerId + " from the database");
+        return null;
+    }
+
+    /**
+     * Fetches active non-delivery reasons from the `issue` table.
+     * Used to populate the ND Reason dropdown in the sale-type selection UI.
+     * Ordered by id DESC as per the PRD.
+     * @return list of issue maps with id, reason (display text), sub_reason
+     */
+    public List<Map<String, Object>> getNonDeliveryReasons() throws Exception {
+        String query = "SELECT ID, REASON, SUB_REASON FROM issue WHERE ACTIVE = true ORDER BY ID DESC";
+        List<Map<String, Object>> reasons = new ArrayList<>();
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> reason = new HashMap<>();
+                    reason.put("id", rs.getInt("ID"));
+                    reason.put("reason", rs.getString("REASON"));
+                    reason.put("sub_reason", rs.getString("SUB_REASON"));
+                    reasons.add(reason);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to fetch ND reasons: " + e.getMessage(), e);
+        }
+        System.out.println("✓ Fetched " + reasons.size() + " active ND reason(s) from issue table");
+        return reasons;
+    }
+
+    /**
+     * Verifies an issue (ND reason) still exists and is active.
+     * Used to reject stale/invalid ND reason selections.
+     *
+     * @param issueId the selected issue id
+     * @return true if the issue exists and is active
+     */
+    public boolean isActiveIssue(Integer issueId) throws Exception {
+        if (issueId == null) {
+            return false;
+        }
+        String query = "SELECT COUNT(*) FROM issue WHERE ID = ? AND ACTIVE = true";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setInt(1, issueId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next() && rs.getInt(1) > 0) {
+                    System.out.println("✓ Issue " + issueId + " is active");
+                    return true;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to validate issue " + issueId + ": " + e.getMessage(), e);
+        }
+        System.out.println("⚠ Issue " + issueId + " is not active or missing");
+        return false;
+    }
+
+    /**
+     * Fetches the remark rows associated with the selected issue, carrying the
+     * remark -> sale_distribution_detail linkage.
+     *
+     * Mapping: issue.id -> remark.ISSUE -> remark.SALE_DISTRIBUTION_DETAIL -> sale_distribution_detail
+     *
+     * @param issueId the selected ND reason (issue) id
+     * @return list of remark maps (remark_id, issue_id, description, sale_distribution_detail_id)
+     */
+    public List<Map<String, Object>> getRemarkMapping(Integer issueId) throws Exception {
+        String query = "SELECT r.ID AS remark_id, r.ISSUE AS issue_id, r.DESCRIPTION, " +
+                       "r.SALE_DISTRIBUTION_DETAIL AS sale_distribution_detail_id " +
+                       "FROM remark r WHERE r.ISSUE = ? ORDER BY r.ID DESC";
+        List<Map<String, Object>> remarks = new ArrayList<>();
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setInt(1, issueId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Map<String, Object> remark = new HashMap<>();
+                    remark.put("remark_id", rs.getLong("remark_id"));
+                    remark.put("issue_id", rs.getInt("issue_id"));
+                    remark.put("description", rs.getString("DESCRIPTION"));
+                    remark.put("sale_distribution_detail_id", rs.getObject("sale_distribution_detail_id"));
+                    remarks.add(remark);
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to fetch remark mapping for issue " + issueId + ": " + e.getMessage(), e);
+        }
+        System.out.println("✓ Fetched " + remarks.size() + " remark mapping(s) for issue " + issueId);
+        return remarks;
     }
 
     /**

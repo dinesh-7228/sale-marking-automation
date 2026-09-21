@@ -179,7 +179,7 @@ public class ApiClient {
     }
 
     /**
-     * Mark sale via Delivery API
+     * Mark sale via Delivery API (Full Sale by default)
      *
      * @param deliveryId     ID from route_sheet_details table
      * @param products       product list (id + quantity from place order API)
@@ -189,6 +189,25 @@ public class ApiClient {
      * @param saleDate       sale marking date (dd-MM-yyyy), defaults to today
      */
     public void saleMarking(Long deliveryId, List<Map<String, Object>> products, Double lat, Double lon, Integer deliveryBoy, String saleDate) throws Exception {
+        saleMarking(deliveryId, products, lat, lon, deliveryBoy, saleDate, true, "");
+    }
+
+    /**
+     * Mark sale via Delivery API.
+     *
+     * Full Sale:    delivered = true,  nonDeliveryReason = "" (or null)
+     * Non Delivery: delivered = false, nonDeliveryReason = selected issue id
+     *
+     * @param deliveryId         ID from route_sheet_details table
+     * @param products           product list (id + quantity from place order API)
+     * @param lat                latitude for delivery location
+     * @param lon                longitude for delivery location
+     * @param deliveryBoy        delivery boy id from route_sheet_details
+     * @param saleDate           sale marking date (dd-MM-yyyy), defaults to today
+     * @param delivered          whether the delivery was made (true for full sale)
+     * @param nonDeliveryReason  issue id for Non Delivery, empty for Full Sale
+     */
+    public void saleMarking(Long deliveryId, List<Map<String, Object>> products, Double lat, Double lon, Integer deliveryBoy, String saleDate, Boolean delivered, Object nonDeliveryReason) throws Exception {
         if (deliveryId == null || products == null || products.isEmpty()) {
             throw new IllegalArgumentException("Invalid sale marking parameters");
         }
@@ -217,7 +236,7 @@ public class ApiClient {
         long deliveryTimeEpoch = computeDeliveryTimeEpoch(saleDate);
 
         Map<String, Object> data = new HashMap<>();
-        data.put("delivered", true);
+        data.put("delivered", delivered != null ? delivered : true);
         data.put("delivery", deliveryId);
         data.put("delivery_boy", deliveryBoy != null ? deliveryBoy : 1);
         data.put("delivery_id", deliveryId);
@@ -229,7 +248,7 @@ public class ApiClient {
         data.put("is_fnv", true);
         data.put("is_geofenced_delivery", true);
         data.put("location", location);
-        data.put("non_delivery_reason", "");
+        data.put("non_delivery_reason", nonDeliveryReason != null ? String.valueOf(nonDeliveryReason) : "");
         data.put("products", processedProducts);
         data.put("quantity_changed", false);
         data.put("remarks", "");
@@ -478,5 +497,103 @@ public class ApiClient {
         } catch (Exception e) {
             return value;
         }
+    }
+
+    /**
+     * Step-4a: Exchange a customer's refresh_token for a fresh rapid API auth
+     * token via the rapid app auth endpoint.
+     *
+     * POST {rapidUrl}/auth/customerApp
+     * Body: { "refresh_token": "<refreshToken>" }
+     * Response: { "token": "<jwt>", "issueTime": "..." }
+     *
+     * @param refreshToken the customer's refresh token from customer_token table
+     * @return the rapid API JWT authorization token
+     */
+    public String getRapidAuthToken(String refreshToken) throws Exception {
+        if (refreshToken == null || refreshToken.trim().isEmpty()) {
+            throw new IllegalArgumentException("Refresh token cannot be empty");
+        }
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("refresh_token", refreshToken);
+
+        Response response = RestAssured.given()
+                .header("x-source", "Android")
+                .header("x-language", "en")
+                .header("x-os", "13")
+                .header("x-app-version-name", "10.9.84")
+                .header("x-app-version-code", "651")
+                .header("x-chatbot-version", "79")
+                .header("x-release-version", "33")
+                .header("x-rapid-version", "12")
+                .contentType(ContentType.JSON)
+                .body(body)
+                .post(envConfig.getRapidUrl() + "/auth/customerApp");
+
+        if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
+            throw new RuntimeException("Rapid auth failed with status " + response.getStatusCode()
+                                     + ": " + response.getBody().asString());
+        }
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode node = mapper.readTree(response.getBody().asString());
+
+        if (node.has("error") && node.get("error").asBoolean()) {
+            throw new RuntimeException("Rapid auth failed: " + node.path("message").asText("Authentication Failed"));
+        }
+        if (!node.has("token") || node.get("token").isNull()) {
+            throw new RuntimeException("Rapid auth response missing token: " + response.getBody().asString());
+        }
+
+        String token = node.get("token").asText();
+        System.out.println("✓ Rapid auth token obtained");
+        return token;
+    }
+
+    /**
+     * Step-4b: Place an order via the rapid API.
+     *
+     * POST {rapidUrl}/api/order
+     * Authorization: Bearer <rapidToken>
+     * Body: rapid order payload including product_list with category_id,
+     *       mrp, product, product_franchise_detail_id, quantity, selling_price.
+     *
+     * @param rapidToken the jwt token from getRapidAuthToken
+     * @param payload    the constructed rapid order body
+     * @return raw response body
+     */
+    public String placeRapidOrder(String rapidToken, Map<String, Object> payload) throws Exception {
+        if (rapidToken == null || rapidToken.trim().isEmpty()) {
+            throw new IllegalArgumentException("Rapid auth token cannot be empty");
+        }
+        if (payload == null || payload.isEmpty()) {
+            throw new IllegalArgumentException("Order payload cannot be empty");
+        }
+
+        Response response = RestAssured.given()
+                .header("x-source", "Android")
+                .header("x-language", "en")
+                .header("x-os", "10")
+                .header("x-app-version-name", "99.99.99")
+                .header("x-app-version-code", "9999")
+                .header("x-version-code", "9999")
+                .header("x-chatbot-version", "80")
+                .header("x-release-version", "33")
+                .header("x-payment-version", "6")
+                .header("x-rapid-version", "12")
+                .header("Authorization", "Bearer " + rapidToken)
+                .contentType(ContentType.JSON)
+                .body(payload)
+                .post(envConfig.getRapidUrl() + "/api/order");
+
+        if (response.getStatusCode() < 200 || response.getStatusCode() >= 300) {
+            throw new RuntimeException("Rapid order placement failed with status " + response.getStatusCode()
+                                     + ": " + response.getBody().asString());
+        }
+
+        String responseBody = response.getBody().asString();
+        System.out.println("✓ Rapid order placed: " + responseBody);
+        return responseBody;
     }
 }

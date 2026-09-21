@@ -3,380 +3,620 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sale Marking Automation</title>
+    <title>CM Automation Admin</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f1f4f9;
             min-height: 100vh;
+        }
+
+        /* ===== Admin layout ===== */
+        .app { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: 250px;
+            background: linear-gradient(180deg, #1e293b 0%, #334155 100%);
+            color: #e2e8f0;
+            position: fixed;
+            top: 0; bottom: 0; left: 0;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+            flex-direction: column;
         }
 
-        .container {
-            width: 100%;
-            max-width: 800px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
+        .brand {
+            padding: 22px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
+        .brand h1 { font-size: 17px; font-weight: 700; }
+        .brand span { font-size: 12px; color: #94a3b8; }
 
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 40px 30px;
-            text-align: center;
-        }
+        .sidebar-nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
 
-        .header h1 {
-            font-size: 28px;
-            margin-bottom: 8px;
-        }
-
-        .env-selector {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 12px 20px;
-            border-radius: 6px;
+        .nav-item {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-top: 12px;
-            justify-content: center;
-        }
-
-        .env-selector label {
-            color: white;
-            font-weight: 600;
-            margin: 0;
-            font-size: 14px;
-        }
-
-        .env-selector select {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 4px;
-            background: white;
-            color: #667eea;
-            font-weight: 600;
+            gap: 10px;
+            padding: 11px 14px;
+            border-radius: 8px;
             cursor: pointer;
+            color: #cbd5e1;
+            margin-bottom: 4px;
             font-size: 14px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .nav-item:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+        .nav-item.active { background: #6366f1; color: #fff; font-weight: 600; }
+        .nav-item .nav-icon { font-size: 17px; }
+
+        .nav-group {
+            font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;
+            padding: 14px 14px 6px; font-weight: 700;
         }
 
-        .env-status {
-            display: inline-block;
-            background: #4CAF50;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: 600;
-            margin-left: 10px;
-        }
-            padding: 40px;
-        }
+        .sidebar-footer { padding: 14px 20px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 11px; color: #94a3b8; }
 
-        .form-group {
-            margin-bottom: 24px;
-        }
+        .main { flex: 1; margin-left: 250px; display: flex; flex-direction: column; min-height: 100vh; }
 
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #333;
-            font-size: 14px;
+        .topbar {
+            height: 64px;
+            background: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            position: sticky; top: 0; z-index: 50;
         }
+        .topbar-left { display: flex; align-items: center; gap: 12px; }
+        .topbar-left h2 { font-size: 18px; color: #1e293b; font-weight: 600; }
+        .topbar-right { display: flex; align-items: center; gap: 10px; }
+        .env-controls { display: flex; align-items: center; gap: 8px; }
+        .env-controls select {
+            padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px;
+            font-size: 13px; background: #fff; color: #1e293b;
+        }
+        .env-badge {
+            display: inline-block; background: #4CAF50; color: #fff;
+            padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;
+        }
+        .env-badge.uat { background: #f59e0b; }
 
+        .content { padding: 24px; flex: 1; }
+
+        /* ===== Feature panels ===== */
+        .feature-panel { display: none; }
+        .feature-panel.active { display: block; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; } }
+
+        /* ===== Cards & tables ===== */
+        .card {
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+            padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        .card h2 { font-size: 16px; color: #1e293b; margin-bottom: 6px; }
+        .card .subtitle { font-size: 13px; color: #64748b; margin-bottom: 14px; }
+        .card h3 { font-size: 14px; color: #334155; margin: 16px 0 8px; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+        .stat-card {
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        .stat-card .stat-icon { font-size: 22px; }
+        .stat-card .stat-value { font-size: 24px; font-weight: 700; color: #1e293b; margin-top: 6px; }
+        .stat-card .stat-label { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+        table.apitable { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+        table.apitable th, table.apitable td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #eef2f7; }
+        table.apitable th { color: #64748b; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+        table.apitable tr:hover td { background: #f8fafc; }
+
+        code.api-path { background: #f1f5f9; border-radius: 4px; padding: 2px 6px; color: #6366f1; font-size: 12px; }
+
+        pre.json { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 8px; overflow-x: auto; font-size: 12px; margin-top: 10px; }
+
+        /* ===== Forms ===== */
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 600; color: #334155; font-size: 13px; }
         .form-group input[type="text"],
         .form-group input[type="number"],
+        .form-group input[type="date"],
         .form-group select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 14px;
-            transition: border-color 0.3s;
+            width: 100%; max-width: 420px; padding: 10px 12px;
+            border: 2px solid #e0e7ef; border-radius: 8px; font-size: 14px; transition: border-color .2s;
         }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #6366f1; }
 
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: #667eea;
+        .form-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .form-row input[type="text"], .form-row input[type="number"] {
+            width: 220px; padding: 9px 12px; border: 2px solid #e0e7ef; border-radius: 8px; font-size: 14px;
         }
+        .form-row input:focus { outline: none; border-color: #6366f1; }
 
-        button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-size: 14px;
+        .btn {
+            padding: 10px 18px; border: none; border-radius: 8px; font-weight: 600;
+            cursor: pointer; transition: all .2s; font-size: 13px;
         }
+        .btn-primary { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #fff; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(99, 102, 241, 0.35); }
+        .btn-secondary { background: #e2e8f0; color: #334155; }
+        .btn-secondary:hover { background: #cbd5e1; }
+        .btn-danger { background: #fef2f2; color: #b91c1c; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
 
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            width: 100%;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .product-list {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
+        /* ===== Product list (sale marking) ===== */
+        .product-list { max-height: 340px; overflow-y: auto; border: 1px solid #eef2f7; border-radius: 8px; }
         .product-item {
-            background: white;
-            padding: 12px;
-            margin-bottom: 8px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border: 2px solid #e0e0e0;
-            cursor: pointer;
-            transition: all 0.3s;
+            background: #fff; padding: 12px; margin: 6px; border-radius: 8px;
+            display: flex; align-items: center; gap: 12px; border: 2px solid #e8edf4;
+            cursor: pointer; transition: all .2s;
         }
+        .product-item:hover { border-color: #6366f1; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12); }
+        .product-item.selected { background: #eef2ff; border-color: #6366f1; }
+        .product-checkbox { width: 18px; height: 18px; cursor: pointer; }
+        .product-info { flex: 1; }
+        .product-name { font-weight: 600; color: #1e293b; font-size: 14px; }
+        .product-meta { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+        .quantity-input { width: 68px; padding: 6px; border: 1px solid #e0e7ef; border-radius: 6px; text-align: center; }
+        .order-type { width: 105px; padding: 6px; border: 1px solid #e0e7ef; border-radius: 6px; font-size: 12px; }
 
-        .product-item:hover {
-            border-color: #667eea;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
-        }
+        .selected-summary { background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 16px; }
+        .summary-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eef2f7; }
+        .summary-item:last-child { border-bottom: none; }
 
-        .product-item.selected {
-            background: #f0f4ff;
-            border-color: #667eea;
-        }
+        .wizard-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
 
-        .product-checkbox {
-            width: 20px;
-            height: 20px;
-            cursor: pointer;
-        }
+        /* ===== Alerts / loading ===== */
+        .alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 14px; font-size: 13px; }
+        .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .alert-warning { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .alert-info { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
 
-        .product-info {
-            flex: 1;
-        }
-
-        .product-name {
-            font-weight: 600;
-            color: #333;
-            font-size: 14px;
-        }
-
-        .product-meta {
-            font-size: 12px;
-            color: #999;
-            margin-top: 4px;
-        }
-
-        .quantity-input {
-            width: 70px;
-            padding: 6px;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-            text-align: center;
-        }
-
-        .order-type {
-            width: 100px;
-            padding: 6px;
-            border: 1px solid #e0e0e0;
-            border-radius: 4px;
-            font-size: 12px;
-        }
-
-        .alert {
-            padding: 16px;
-            border-radius: 6px;
-            margin-bottom: 16px;
-            font-size: 14px;
-        }
-
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .alert-warning {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeeba;
-        }
-
-        .summary-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #e0e0e0;
-        }
-
-        .summary-item:last-child {
-            border-bottom: none;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-        }
-
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(15, 23, 42, 0.5); }
+        .modal-content { background-color: #fff; margin: 12% auto; padding: 28px; border-radius: 12px; max-width: 420px; text-align: center; }
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 12px;
+            border: 4px solid #e2e8f0; border-top: 4px solid #6366f1; border-radius: 50%;
+            width: 42px; height: 42px; animation: spin 1s linear infinite; margin: 0 auto 12px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .callout {
+            background: #f5f3ff; border: 1px solid #ddd6fe; border-left: 4px solid #8b5cf6;
+            border-radius: 8px; padding: 14px; font-size: 13px; color: #4c1d95; margin-top: 10px;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .db-check {
+            display: flex; align-items: center; gap: 8px; padding: 9px 12px;
+            border: 1px solid #e0e7ef; border-radius: 8px; background: #f8fafc; cursor: pointer; font-size: 13px;
         }
+        .db-check:hover { border-color: #6366f1; }
+        .db-check input[type="checkbox"] { width: 16px; height: 16px; }
 
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-        }
-
-        .modal-content {
-            background-color: white;
-            margin: 10% auto;
-            padding: 30px;
-            border-radius: 8px;
-            max-width: 500px;
-        }
-
-        .selected-summary {
-            background: #f9f9f9;
-            padding: 16px;
-            border-radius: 6px;
-            margin-bottom: 24px;
-        }
-
-        h2 {
-            margin-bottom: 20px;
-            color: #333;
-            font-size: 18px;
-        }
-
-        h3 {
-            margin-bottom: 12px;
-            color: #555;
-            font-size: 14px;
+        @media (max-width: 760px) {
+            .sidebar { width: 68px; }
+            .brand h1, .brand span, .nav-item .nav-label, .sidebar-footer { display: none; }
+            .nav-item { justify-content: center; }
+            .main { margin-left: 68px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🎯 Sale Marking Automation</h1>
-            <div class="env-selector">
-                <label for="envSelect">Environment:</label>
-                <select id="envSelect" onchange="switchEnvironment()">
-                    <option value="QA">QA</option>
-                    <option value="UAT">UAT</option>
-                </select>
-                <span class="env-status" id="envStatus">QA</span>
+    <!--
+    ============================================================================
+    HOW TO ADD A NEW FEATURE / PAGE TO THIS ADMIN PANEL
+    ----------------------------------------------------------------------------
+    1. Add a nav entry into the FEATURES array in <script> below, e.g.:
+         { id: 'reports', label: 'Reports', icon: '📈' }
+    2. Add a section right after the last </section>, e.g.:
+         <section class="feature-panel" data-feature="reports">
+             <div class="card">
+                 <h2>Reports</h2>
+                 <div class="subtitle">Description of this new feature.</div>
+                 ...your markup...
+             </div>
+         </section>
+    3. Optionally add an on-enter hook so data loads each time the page opens:
+         FEATURE_ON_ENTER['reports'] = () => loadReports();
+    4. (Optional) register the lifecycle function + backend fetch.
+    The sidebar navigation is rendered automatically from the FEATURES array.
+    ============================================================================
+    -->
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <h1>🎯 CM Automation</h1>
+                <span>Admin Console · By Dinesh</span>
             </div>
-        </div>
+            <nav class="sidebar-nav" id="sidebarNav"></nav>
+            <div class="sidebar-footer">Country Delight <br>Sale Marking Automation</div>
+        </aside>
 
-        <div class="content">
-            <div id="alertContainer"></div>
-
-            <!-- Step 1: Search Customer -->
-            <div id="customerSearch" class="form-section">
-                <h2>Step 1: Search Customer</h2>
-                <div class="form-group">
-                    <label>Mobile Number</label>
-                    <input type="text" id="phoneInput" placeholder="Enter customer phone number" maxlength="10">
+        <!-- Main -->
+        <main class="main">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <h2 id="pageTitle">Dashboard</h2>
                 </div>
-                <button class="btn-primary" onclick="searchCustomer()">Search Customer</button>
-
-                <div id="customerResults" style="margin-top: 20px; display: none;">
-                    <div class="product-list" id="customerList"></div>
-                </div>
-            </div>
-
-            <!-- Step 2: Select Products -->
-            <div id="productSelection" class="form-section" style="display: none;">
-                <h2>Step 2: Select Products</h2>
-                
-                <div class="selected-summary" id="customerSummary" style="display: none;">
-                    <div class="summary-item">
-                        <strong>Customer:</strong>
-                        <span id="summaryCustomerName"></span>
+                <div class="topbar-right">
+                    <div class="env-controls">
+                        <label for="envSelect" style="font-size:13px; color:#64748b;">Environment:</label>
+                        <select id="envSelect" onchange="switchEnvironment(this.value)">
+                            <option value="QA">QA</option>
+                            <option value="UAT">UAT</option>
+                        </select>
+                        <span class="env-badge" id="envBadge">QA</span>
                     </div>
-                    <div class="summary-item">
-                        <strong>City ID:</strong>
-                        <span id="summaryCityId"></span>
+                    <span id="envNote" style="font-size:12px; color:#94a3b8;"></span>
+                </div>
+            </header>
+
+            <div class="content">
+                <div id="alertContainer"></div>
+
+                <!-- ============ DASHBOARD ============ -->
+                <section class="feature-panel" data-feature="dashboard">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">🌐</div>
+                            <div class="stat-value" id="statEnv">-</div>
+                            <div class="stat-label">Active Environment</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🧩</div>
+                            <div class="stat-value" id="statFeatures">-</div>
+                            <div class="stat-label">Admin Features</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🔌</div>
+                            <div class="stat-value" id="statEndpoints">-</div>
+                            <div class="stat-label">API Endpoints</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🎯</div>
+                            <div class="stat-value">1-Click</div>
+                            <div class="stat-label">Sale Marking</div>
+                        </div>
                     </div>
-                </div>
 
-                <h3>Available Products</h3>
-                <div class="product-list" id="productList"></div>
+                    <div class="card" style="margin-top:16px;">
+                        <h2>Quick Actions</h2>
+                        <div class="form-row" style="margin-top:10px;">
+                            <button class="btn btn-primary" onclick="navigateTo('sale-marking')">🎯 Mark a Sale</button>
+                            <button class="btn btn-secondary" onclick="navigateTo('nd-reasons')">📋 ND Reasons</button>
+                            <button class="btn btn-secondary" onclick="navigateTo('route-sheet')">🚚 Route Sheet Lookup</button>
+                            <button class="btn btn-secondary" onclick="navigateTo('settings')">⚙️ Settings</button>
+                        </div>
+                    </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px;">
-                    <button class="btn-primary" onclick="backToSearch()" style="background: #e0e0e0; color: #333;">Back</button>
-                    <button class="btn-primary" onclick="proceedToOrder()">Proceed</button>
-                </div>
+                    <div class="card">
+                        <h2>Available API Endpoints</h2>
+                        <div class="subtitle">Backend endpoints exposed by this application.</div>
+                        <table class="apitable">
+                            <thead><tr><th>Method</th><th>Path</th><th>Purpose</th></tr></thead>
+                            <tbody>
+                                <tr><td>GET</td><td><code class="api-path">/api/environment</code></td><td>Get current environment</td></tr>
+                                <tr><td>POST</td><td><code class="api-path">/api/environment</code></td><td>Switch QA/UAT environment</td></tr>
+                                <tr><td>GET</td><td><code class="api-path">/api/customer/search?phone=</code></td><td>Search customer by mobile</td></tr>
+                                <tr><td>GET</td><td><code class="api-path">/api/product/fetch?customerId=&amp;cityId=</code></td><td>Fetch products for a customer</td></tr>
+                                <tr><td>GET</td><td><code class="api-path">/api/order/nd-reasons</code></td><td>Active ND reasons list</td></tr>
+                                <tr><td>GET</td><td><code class="api-path">/api/order/nd-remarks/{issueId}</code></td><td>Remark mapping for an issue</td></tr>
+                                <tr><td>GET</td><td><code class="api-path">/api/order/route-sheet/{customerId}</code></td><td>Latest route sheet for a customer</td></tr>
+                                <tr><td>POST</td><td><code class="api-path">/api/order/place-and-mark</code></td><td>Complete automated workflow</td></tr>
+                                <tr><td>POST</td><td><code class="api-path">/api/order/place-and-mark/stream</code></td><td>Workflow with live SSE progress log</td></tr>
+                                <tr><td>GET</td><td><code class="api-path">/api/complaint/databases</code></td><td>Complaint cleanup target databases</td></tr>
+                                <tr><td>POST</td><td><code class="api-path">/api/complaint/cleanup</code></td><td>Re-point complaints of mobiles to cleaned id</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="card">
+                        <h2>Add a new feature</h2>
+                        <div class="callout">
+                            1️⃣ Add an entry to the <code class="api-path">FEATURES</code> array in the script below.<br>
+                            2️⃣ Add a matching <code class="api-path">&lt;section class="feature-panel" data-feature="your-id"&gt;</code> block.<br>
+                            3️⃣ The sidebar navigation updates itself automatically. (Full instructions at the top of this HTML file.)
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ SALE MARKING (existing wizard) ============ -->
+                <section class="feature-panel" data-feature="sale-marking">
+                    <div id="customerSearch">
+                        <div class="card">
+                            <h2>Step 1 · Search Customer</h2>
+                            <div class="form-group">
+                                <label>Mobile Number</label>
+                                <input type="text" id="phoneInput" placeholder="Enter customer phone number" maxlength="10">
+                            </div>
+                            <button class="btn btn-primary" onclick="searchCustomer()">Search Customer</button>
+                            <div id="customerResults" style="margin-top:16px; display:none;">
+                                <div class="product-list" id="customerList"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="rapidAddressSelection" style="display:none;">
+                        <div class="card">
+                            <h2>Step 2 · Rapid Scenario &amp; Address <span class="env-badge" style="background:#059669;">Rapid</span></h2>
+                            <div class="subtitle">Choose how to handle this rapid order, then select the delivery address.</div>
+
+                            <div class="form-group">
+                                <label>Scenario *</label>
+                                <div style="display:flex; flex-direction:column; gap:6px; padding: 8px 0;">
+                                    <label style="font-weight:400; display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 12px; border:1px solid #e0e7ef; border-radius:8px;">
+                                        <input type="radio" name="rapidScenario" value="PLACE_AND_MARK" checked onchange="onRapidScenarioChange()">
+                                        <span><strong>1 · Place Order &amp; Sale Mark</strong><br>
+                                            <span style="font-size:12px; color:#64748b;">Place a new rapid order for the selected products, then mark the sale with automation.</span></span>
+                                    </label>
+                                    <label style="font-weight:400; display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 12px; border:1px solid #e0e7ef; border-radius:8px;">
+                                        <input type="radio" name="rapidScenario" value="ONLY_MARK" onchange="onRapidScenarioChange()">
+                                        <span><strong>2 · Only Sale Mark</strong><br>
+                                            <span style="font-size:12px; color:#64748b;">The order is already placed — fetch the latest order and only run the sale marking automation.</span></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="selected-summary" id="rapidCustomerSummary" style="display:none;">
+                                <div class="summary-item"><strong>Customer:</strong><span id="rapidSummaryCustomerName"></span></div>
+                                <div class="summary-item"><strong>Franchise:</strong><span id="rapidSummaryFranchise"></span></div>
+                                <div class="summary-item"><strong>Address:</strong><span id="rapidSummaryAddress"></span></div>
+                            </div>
+
+                            <h3>Addresses</h3>
+                            <div class="product-list" id="addressList"></div>
+
+                            <div class="wizard-actions">
+                                <button class="btn btn-secondary" onclick="backToSearchFromRapid()">Back</button>
+                                <button class="btn btn-primary" onclick="continueRapidFromScenario()">Continue</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="productSelection" style="display:none;">
+                        <div class="card">
+                            <h2>Step 2 · Select Products</h2>
+
+                            <div class="selected-summary" id="customerSummary" style="display:none;">
+                                <div class="summary-item"><strong>Customer:</strong><span id="summaryCustomerName"></span></div>
+                                <div class="summary-item"><strong>City ID:</strong><span id="summaryCityId"></span></div>
+                            </div>
+
+                            <h3>Available Products</h3>
+                            <div class="product-list" id="productList"></div>
+
+                            <div id="manualProductBlock" style="display:none; margin-top:16px; padding:14px; border:2px dashed #6366f1; border-radius:8px; background:#f8faff;">
+                                <h3>No catalog products found — enter Product ID manually</h3>
+                                <div class="form-row" style="margin-top:8px;">
+                                    <label style="font-size:13px;">Product ID:</label>
+                                    <input type="number" id="manualProductId" min="1" placeholder="e.g. 183">
+                                    <label style="font-size:13px;">Qty:</label>
+                                    <input type="number" id="manualQty" min="1" value="1" style="width:70px;">
+                                    <label style="font-size:13px;">Type:</label>
+                                    <select id="manualType" style="padding:8px; border:1px solid #e0e7ef; border-radius:6px;">
+                                        <option>one_time</option>
+                                        <option>daily</option>
+                                        <option>weekend</option>
+                                        <option>alternate</option>
+                                    </select>
+                                    <button class="btn btn-primary" onclick="addManualProduct()">Add Product</button>
+                                </div>
+                                <div id="manualSelected" style="margin-top:10px; font-size:13px;"></div>
+                            </div>
+
+                            <div class="wizard-actions">
+                                <button class="btn btn-secondary" onclick="backToSearch()">Back</button>
+                                <button class="btn btn-primary" onclick="proceedToOrder()">Proceed</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="orderCompletion" style="display:none;">
+                        <div class="card">
+                            <h2>Step 3 &amp; 4 · Confirm &amp; Mark Sale</h2>
+
+                            <div class="selected-summary">
+                                <h3>Order Summary</h3>
+                                <div id="orderSummary"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Sale Marking Date</label>
+                                <input type="date" id="saleDateInput" onchange="updateSaleDateLabel()">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Sale Type</label>
+                                <div style="display:flex; gap:24px; padding: 8px 0;">
+                                    <label style="font-weight:400; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                        <input type="radio" name="saleType" value="FULL_SALE" onchange="onSaleTypeChange()"> Full Sale
+                                    </label>
+                                    <label style="font-weight:400; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                        <input type="radio" name="saleType" value="NON_DELIVERY" onchange="onSaleTypeChange()"> Non Delivery
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group" id="ndReasonGroup" style="display:none;">
+                                <label>ND Reason *</label>
+                                <select id="ndReasonSelect">
+                                    <option value="">Select ND Reason</option>
+                                </select>
+                                <div id="ndReasonEmptyMsg" class="alert alert-warning" style="display:none; margin-top:8px;"></div>
+                            </div>
+
+                            <div class="wizard-actions" style="grid-template-columns: 1fr;">
+                                <button class="btn btn-secondary" onclick="backFromConfirm()" style="margin-bottom:4px;">← Back to Products</button>
+                                <button class="btn btn-primary" onclick="completeOrder()">Place Order &amp; Mark Sale</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ ND REASONS ============ -->
+                <section class="feature-panel" data-feature="nd-reasons">
+                    <div class="card">
+                        <h2>Non-Delivery Reasons</h2>
+                        <div class="subtitle">Active ND reasons from the <code class="api-path">issue</code> table.</div>
+                        <button class="btn btn-primary" onclick="loadNdReasonsPanel()">Refresh</button>
+                        <div style="margin-top:14px;" id="ndReasonsTable"></div>
+
+                        <div id="ndRemarksWrap" style="display:none; margin-top:18px;">
+                            <h3>Remark / Sale-Distribution mapping · issue: <span id="ndRemarksIssue"></span></h3>
+                            <div id="ndRemarksTable"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ ROUTE SHEET ============ -->
+                <section class="feature-panel" data-feature="route-sheet">
+                    <div class="card">
+                        <h2>Route Sheet Lookup</h2>
+                        <div class="subtitle">Fetch the latest route sheet for a customer (DB customer ID).</div>
+                        <div class="form-row">
+                            <input type="text" id="routeSheetCustomerId" placeholder="Customer ID e.g. 1154139">
+                            <button class="btn btn-primary" onclick="viewRouteSheet()">Fetch</button>
+                        </div>
+                        <div id="routeSheetResult"></div>
+                    </div>
+                </section>
+
+                <!-- ============ SETTINGS ============ -->
+                <section class="feature-panel" data-feature="settings">
+                    <div class="card">
+                        <h2>System Settings</h2>
+                        <div class="subtitle">Application configuration for the active environment.</div>
+                        <button class="btn btn-secondary" onclick="loadSettingsPanel()">Refresh</button>
+                        <div style="margin-top:14px;" id="settingsInfo"></div>
+                    </div>
+                </section>
+
+                <!-- ============ COMPLAINT CLEAN UP ============ -->
+                <section class="feature-panel" data-feature="complaint-cleanup">
+                    <div class="card">
+                        <h2>Complaint Clean Up</h2>
+                        <div class="subtitle">
+                            Re-point all complaints of the entered customer mobile numbers to the cleaned customer
+                            DB id <strong>12345</strong> across the selected databases.
+                        </div>
+
+                        <div class="form-group">
+                            <label>Customer Mobile Number(s) *</label>
+                            <textarea id="ccMobiles" rows="4" placeholder="Enter one mobile number per line (or comma separated)&#10;e.g. 9876543210" style="width:100%; max-width:560px; padding:10px 12px; border:2px solid #e0e7ef; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Target Customer DB ID (fixed)</label>
+                            <input type="number" id="ccTargetId" value="12345" disabled>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Databases to update</label>
+                            <div id="ccDbList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;"></div>
+                        </div>
+
+                        <div class="form-row">
+                            <button class="btn btn-primary" onclick="runComplaintCleanup()">Run Cleanup</button>
+                            <button class="btn btn-secondary" onclick="renderComplaintDbList()">Reset Selection</button>
+                        </div>
+
+                        <div style="margin-top:16px;" id="ccResult"></div>
+                    </div>
+                </section>
             </div>
-
-            <!-- Step 3 & 4: Order Summary -->
-            <div id="orderCompletion" class="form-section" style="display: none;">
-                <h2>Step 3 & 4: Confirm & Mark Sale</h2>
-
-                <div class="selected-summary">
-                    <h3>Order Summary</h3>
-                    <div id="orderSummary"></div>
-                </div>
-
-                <button class="btn-primary" onclick="completeOrder()">Place Order & Mark Sale</button>
-            </div>
-        </div>
+        </main>
     </div>
 
     <!-- Loading Modal -->
     <div id="loadingModal" class="modal">
-        <div class="modal-content" style="text-align: center;">
+        <div class="modal-content">
             <div class="spinner"></div>
             <p id="loadingText">Processing...</p>
         </div>
     </div>
 
-    <script>
-        let selectedCustomer = null;
-        let selectedProducts = [];
-        let currentEnv = 'QA';
+    <!-- Process Log Modal (live sale marking progress) -->
+    <div id="processLogModal" class="modal">
+        <div class="modal-content" style="max-width:820px; text-align:left; width:92%; max-height:86vh; overflow:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 style="margin:0;">Sale Marking Process Log</h3>
+                <span id="processLogStatus" class="env-badge">RUNNING</span>
+            </div>
+            <div id="processLogBody" style="font-family:monospace; font-size:12px; background:#0f172a; color:#cbd5e1; border-radius:8px; padding:14px; max-height:56vh; overflow:auto; line-height:1.7;"></div>
+            <button class="btn btn-primary" style="margin-top:14px; width:100%;" onclick="closeProcessLog()">Close</button>
+        </div>
+    </div>
 
+    <script>
+        /* ==================================================================
+           NAVIGATION CONFIG — add new features here
+           ================================================================== */
+        const FEATURES = [
+            { id: 'dashboard',         label: 'Dashboard',         icon: '🏠', group: 'Main' },
+            { id: 'sale-marking',      label: 'Sale Marking',      icon: '🎯', group: 'Main' },
+            { id: 'nd-reasons',        label: 'ND Reasons',        icon: '📋', group: 'Main' },
+            { id: 'route-sheet',       label: 'Route Sheet',       icon: '🚚', group: 'Main' },
+            { id: 'settings',          label: 'Settings',          icon: '⚙️', group: 'Main' },
+            { id: 'complaint-cleanup', label: 'Complaint Clean Up', icon: '🧹', group: 'Complaints' }
+        ];
+
+        /* On-enter lifecycle hooks — run every time a feature becomes active.
+           Register new features like: FEATURE_ON_ENTER['reports'] = () => loadReports(); */
+        const FEATURE_ON_ENTER = {
+            'sale-marking': () => { resetForm(); },
+            'nd-reasons':   () => loadNdReasonsPanel(),
+            'route-sheet':  () => {},
+            'settings':     () => loadSettingsPanel(),
+            'complaint-cleanup': () => renderComplaintDbList()
+        };
+
+        function renderSidebar() {
+            const groups = [];
+            for (const f of FEATURES) {
+                const g = f.group || 'Main';
+                if (!groups.includes(g)) groups.push(g);
+            }
+            let html = '';
+            for (const g of groups) {
+                html += `<div class="nav-group">${g}</div>`;
+                html += FEATURES.filter(f => (f.group || 'Main') === g).map(f =>
+                    `<div class="nav-item" data-feature="${f.id}" onclick="navigateTo('${f.id}')">
+                        <span class="nav-icon">${f.icon}</span>
+                        <span class="nav-label">${f.label}</span>
+                     </div>`
+                ).join('');
+            }
+            document.getElementById('sidebarNav').innerHTML = html;
+            document.getElementById('statFeatures').textContent = FEATURES.length;
+        }
+
+        function navigateTo(featureId) {
+            if (!FEATURES.some(f => f.id === featureId)) {
+                featureId = 'dashboard';
+            }
+            document.querySelectorAll('.feature-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+            const panel = document.querySelector(`.feature-panel[data-feature="${featureId}"]`);
+            if (panel) panel.classList.add('active');
+
+            const nav = document.querySelector(`.nav-item[data-feature="${featureId}"]`);
+            if (nav) nav.classList.add('active');
+
+            const feature = FEATURES.find(f => f.id === featureId);
+            document.getElementById('pageTitle').textContent = feature ? feature.label : '';
+
+            if (FEATURE_ON_ENTER[featureId]) {
+                try { FEATURE_ON_ENTER[featureId](); } catch (e) { console.error(e); }
+            }
+        }
+
+        /* ================= Alerts & loading ================= */
         function showAlert(message, type = 'info') {
             const alertContainer = document.getElementById('alertContainer');
             const alertDiv = document.createElement('div');
@@ -396,59 +636,64 @@
             document.getElementById('loadingModal').style.display = 'none';
         }
 
-        async function loadEnvironment() {
+        /* ================= Environment ================= */
+        async function loadCurrentEnvironment() {
             try {
-                const response = await fetch('/api/config/environment');
+                const response = await fetch('/api/environment');
                 const data = await response.json();
                 if (data.success) {
-                    currentEnv = data.currentEnv;
-                    document.getElementById('envSelect').value = currentEnv;
-                    document.getElementById('envStatus').textContent = currentEnv;
+                    document.getElementById('envSelect').value = data.env.toUpperCase();
+                    updateEnvNote(data.env.toUpperCase());
+                    document.getElementById('statEnv').textContent = data.env.toUpperCase();
                 }
             } catch (error) {
                 console.error('Failed to load environment:', error);
             }
         }
 
-        async function switchEnvironment() {
-            const env = document.getElementById('envSelect').value;
-            showLoading(`Switching to ${env} environment...`);
-            
+        async function switchEnvironment(env) {
+            showLoading(`Switching to ${env} ...`);
             try {
-                const response = await fetch('/api/config/environment', {
+                const response = await fetch('/api/environment', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ environment: env })
+                    body: JSON.stringify({ env: env })
                 });
                 const data = await response.json();
                 hideLoading();
-                
+                updateEnvNote(env);
                 if (data.success) {
-                    currentEnv = env;
-                    document.getElementById('envStatus').textContent = env;
-                    showAlert(`✓ Switched to ${env} environment`, 'success');
-                    console.log('API Base URL:', data.baseUrl);
-                } else {
-                    showAlert(`Error: ${data.message}`, 'error');
+                    document.getElementById('statEnv').textContent = env.toUpperCase();
                 }
+                showAlert(data.message || `Environment switched to ${env}`, data.success ? 'success' : 'error');
             } catch (error) {
                 hideLoading();
-                showAlert(`Error: ${error.message}`, 'error');
+                showAlert(`Failed to switch environment: ${error.message}`, 'error');
             }
         }
 
+        function updateEnvNote(env) {
+            const isUat = env.toUpperCase() === 'UAT';
+            document.getElementById('envNote').textContent = isUat ? 'uat-cms · beejapuri_UAT' : 'qa-cms · beejapuri_QA';
+            document.getElementById('envBadge').textContent = env.toUpperCase();
+            document.getElementById('envBadge').className = 'env-badge' + (isUat ? ' uat' : '');
+        }
+
+        /* ================= SALE MARKING WIZARD ================= */
+        let selectedCustomer = null;
+        let selectedProducts = [];
+        let ndReasonsLoaded = false;
+        let customerResultsCache = [];
+
         async function searchCustomer() {
             const phone = document.getElementById('phoneInput').value.trim();
-            if (!phone) {
-                showAlert('Please enter a phone number', 'error');
-                return;
-            }
+            if (!phone) { showAlert('Please enter a phone number', 'error'); return; }
             showLoading('Searching customer...');
             try {
                 const response = await fetch(`/api/customer/search?phone=${phone}`);
                 const data = await response.json();
                 hideLoading();
-                if (data.success && data.data.length > 0) {
+                if (data.success && data.data && data.data.length > 0) {
                     displayCustomers(data.data);
                 } else {
                     showAlert('No customers found', 'warning');
@@ -460,34 +705,223 @@
         }
 
         function displayCustomers(customers) {
+            customerResultsCache = customers;
             const customerList = document.getElementById('customerList');
-            customerList.innerHTML = customers.map(c => {
+            customerList.innerHTML = customers.map((c, idx) => {
                 const fullName = (c.FIRST_NAME || '') + (c.LAST_NAME ? ' ' + c.LAST_NAME : '');
                 const area = c.AREA || (c.attributes && c.attributes.length > 0 ? c.attributes[0].AREA : 'N/A');
                 const franchise = c.FRANCHISE || (c.attributes && c.attributes.length > 0 ? c.attributes[0].FRANCHISE : 'Not Set');
                 const city = c.CITY || (c.attributes && c.attributes.length > 0 ? c.attributes[0].CITY : 'N/A');
-                
+                const rapidEligible = c.rapidEligible;
+                const rapidMessage = c.rapidEligibilityMessage || (rapidEligible ? 'Customer is rapid eligible' : 'Customer is not rapid eligible');
+                const rapidBadge = rapidEligible
+                    ? `<div class="product-meta" style="color:#059669; font-weight:600;">⚡ ${rapidMessage}</div>`
+                    : `<div class="product-meta" style="color:#dc2626;">${rapidMessage}</div>`;
+
                 return `
-                    <div class="product-item" style="cursor: pointer;" onclick="selectCustomer({
-                        id: ${c.ID}, 
-                        customerId: '${c.CUSTOMER_ID || ''}',
-                        name: '${fullName}', 
-                        phone: '${c.PRIMARY_CONTACT_NUMBER || ''}',
-                        email: '${c.EMAIL || ''}',
-                        area: '${area}',
-                        franchise: '${franchise}',
-                        city: '${city}',
-                        attributes: ${JSON.stringify(c.attributes || [])}
-                    })">
-                        <div style="flex: 1;">
+                    <div class="product-item" style="cursor:pointer;" data-cust-idx="${idx}" onclick="selectCustomerByIndex(${idx})">
+                        <div class="product-info">
                             <div class="product-name">${fullName || 'Unknown'}</div>
                             <div class="product-meta">📱 Phone: ${c.PRIMARY_CONTACT_NUMBER}</div>
-                            <div class="product-meta">📍 Area: ${area} | 🏢 Franchise: ${franchise}</div>
+                            <div class="product-meta">📍 Area: ${area} · 🏢 Franchise: ${franchise}</div>
                             <div class="product-meta">🏙️ City: ${city}</div>
+                            ${rapidBadge}
                         </div>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
+            document.getElementById('customerResults').style.display = 'block';
+        }
+
+        function selectCustomerByIndex(idx) {
+            const c = customerResultsCache[idx];
+            if (!c) { showAlert('Customer record not found. Please search again.', 'error'); return; }
+            const fullName = (c.FIRST_NAME || '') + (c.LAST_NAME ? ' ' + c.LAST_NAME : '');
+            const area = c.AREA || (c.attributes && c.attributes.length > 0 ? c.attributes[0].AREA : 'N/A');
+            const franchise = c.FRANCHISE || (c.attributes && c.attributes.length > 0 ? c.attributes[0].FRANCHISE : 'Not Set');
+            const city = c.CITY || (c.attributes && c.attributes.length > 0 ? c.attributes[0].CITY : 'N/A');
+            selectCustomer({
+                id: c.ID,
+                customerId: c.CUSTOMER_ID || '',
+                name: fullName,
+                phone: c.PRIMARY_CONTACT_NUMBER || '',
+                email: c.EMAIL || '',
+                area: area,
+                franchise: franchise,
+                city: city,
+                attributes: c.attributes || [],
+                rapidEligible: !!c.rapidEligible
+            });
+        }
+
+        let selectedRapidAddressId = null;
+        let selectedRapidFranchiseId = null;
+        let rapidScenarioMode = 'PLACE_AND_MARK';
+
+        function getRapidScenarioMode() {
+            const checked = document.querySelector('input[name="rapidScenario"]:checked');
+            return checked ? checked.value : rapidScenarioMode;
+        }
+
+        function onRapidScenarioChange() {
+            rapidScenarioMode = getRapidScenarioMode();
+            if (rapidScenarioMode === 'ONLY_MARK') {
+                document.getElementById('rapidSummaryFranchise').textContent = selectedRapidFranchiseId || 'N/A';
+            }
+        }
+
+        async function loadRapidAddresses(customerId) {
+            document.getElementById('rapidSummaryCustomerName').textContent = selectedCustomer.name;
+            document.getElementById('rapidCustomerSummary').style.display = 'block';
+            showLoading('Loading rapid addresses...');
+            try {
+                const response = await fetch(`/api/rapid-sale-marking/addresses/${encodeURIComponent(customerId)}`);
+                const data = await response.json();
+                hideLoading();
+                if (data.success && data.addresses && data.addresses.length > 0) {
+                    displayRapidAddresses(data.addresses);
+                    const sel = data.selectedAddress || null;
+                    if (sel) {
+                        selectedRapidAddressId = sel.id;
+                        selectedRapidFranchiseId = data.franchiseId;
+                        document.getElementById('rapidSummaryFranchise').textContent = data.franchiseId || 'N/A';
+                        document.getElementById('rapidSummaryAddress').textContent =
+                            formatAddress(sel) || ('Address #' + sel.id);
+                        // Highlight the auto-selected (newest) address
+                        const firstRadio = document.querySelector('#addressList input[name="rapidAddress"][disabled]')
+                            || document.querySelector('#addressList input[name="rapidAddress"]');
+                        if (firstRadio) {
+                            firstRadio.checked = true;
+                            markAddressSelected(firstRadio.value);
+                        }
+                    }
+                    showAlert(`Newest address auto-selected · Franchise ${data.franchiseId || 'N/A'} cached`, 'success');
+                } else {
+                    document.getElementById('addressList').innerHTML =
+                        `<div class="alert alert-warning">${data.message || 'No addresses found'}</div>`;
+                    document.getElementById('rapidSummaryFranchise').textContent = 'N/A';
+                    document.getElementById('rapidSummaryAddress').textContent = 'No address';
+                }
+            } catch (error) {
+                hideLoading();
+                document.getElementById('addressList').innerHTML =
+                    `<div class="alert alert-error">Error loading addresses: ${error.message}</div>`;
+                document.getElementById('rapidSummaryFranchise').textContent = 'N/A';
+            }
+        }
+
+        function formatAddress(addr) {
+            if (!addr) return '';
+            const parts = [addr.address_line_1, addr.address_line_2, addr.address_line_3].filter(Boolean);
+            return parts.join(', ') || '';
+        }
+
+        function displayRapidAddresses(addresses) {
+            const container = document.getElementById('addressList');
+            container.innerHTML = addresses.map((a, idx) => `
+                <div class="product-item" id="addr-i-${a.id}">
+                    <input type="radio" name="rapidAddress" value="${a.id}"
+                           data-franchise="${a.franchise != null ? a.franchise : (a.last_franchise != null ? a.last_franchise : (a.rapid_franchise != null ? a.rapid_franchise : ''))}"
+                           ${idx === 0 ? 'checked' : ''}
+                           onchange="onRapidAddressChange(this)">
+                    <div class="product-info">
+                        <div class="product-name">${formatAddress(a) || ('Address #' + a.id)}</div>
+                        <div class="product-meta">📍 Franchise: ${a.franchise || a.last_franchise || a.rapid_franchise || 'N/A'}</div>
+                        <div class="product-meta">📌 Label: ${a.label || 'N/A'} · ETA: ${a.google_eta != null ? a.google_eta : 'N/A'} min</div>
+                    </div>
+                    ${idx === 0 ? '<span class="env-badge" style="background:#059669;">Auto-selected (newest)</span>' : ''}
+                </div>`).join('');
+
+            const first = document.querySelector('#addressList input[name="rapidAddress"]:checked');
+            if (first) onRapidAddressChange(first);
+        }
+
+        function onRapidAddressChange(radio) {
+            selectedRapidAddressId = radio.value;
+            const franchise = radio.getAttribute('data-franchise');
+            selectedRapidFranchiseId = franchise ? parseInt(franchise) : null;
+            document.getElementById('rapidSummaryFranchise').textContent = selectedRapidFranchiseId || 'N/A';
+            markAddressSelected(radio.value);
+        }
+
+        function markAddressSelected(id) {
+            document.querySelectorAll('#addressList .product-item').forEach(el => el.classList.remove('selected'));
+            const target = document.getElementById('addr-i-' + id);
+            if (target) target.classList.add('selected');
+        }
+
+        async function continueRapidFromScenario() {
+            rapidScenarioMode = getRapidScenarioMode();
+
+            if (rapidScenarioMode === 'ONLY_MARK') {
+                if (!selectedCustomer) { showAlert('Please select a customer first.', 'error'); return; }
+                document.getElementById('rapidAddressSelection').style.display = 'none';
+                document.getElementById('productSelection').style.display = 'none';
+                await startOnlyMarkResultFlow();
+                return;
+            }
+
+            if (!selectedRapidFranchiseId) { showAlert('Please select an address with a valid franchise first', 'error'); return; }
+            document.getElementById('rapidAddressSelection').style.display = 'none';
+            document.getElementById('productSelection').style.display = 'block';
+            document.getElementById('summaryCityId').textContent = 'Franchise: ' + selectedRapidFranchiseId;
+            fetchRapidProducts(selectedRapidFranchiseId);
+        }
+
+        async function startOnlyMarkResultFlow() {
+            showLoading('Fetching latest rapid order...');
+            try {
+                const response = await fetch(`/api/rapid-sale-marking/latest-order/${encodeURIComponent(selectedCustomer.id)}`);
+                const data = await response.json();
+                hideLoading();
+                if (!data.success) {
+                    showAlert(data.message || 'No already-placed order found — first place an order.', 'error');
+                    document.getElementById('rapidAddressSelection').style.display = 'block';
+                    return;
+                }
+                const order = data.order || {};
+                const summary = document.getElementById('orderSummary');
+                summary.innerHTML = `
+                    <div class="summary-item"><span>Order Number</span><span>${data.orderNumber || order.order_number || 'N/A'}</span></div>
+                    <div class="summary-item"><span>Order ID</span><span>${data.orderId || order.id || 'N/A'}</span></div>
+                    <div class="summary-item"><span>Franchise</span><span>${data.franchiseId || order.franchise || 'N/A'}</span></div>
+                    <div class="summary-item"><span>Status</span><span>${data.orderStatus != null ? data.orderStatus : (order.status != null ? order.status : 'N/A')}</span></div>
+                    <div class="summary-item"><span>Address</span><span>${order.address_string || ('Address #' + order.address) || 'N/A'}</span></div>`;
+                document.getElementById('orderCompletion').style.display = 'block';
+                setDefaultSaleDate();
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+                document.getElementById('rapidAddressSelection').style.display = 'block';
+            }
+        }
+
+        async function fetchRapidProducts(franchiseId) {
+            showLoading('Fetching franchise products...');
+            try {
+                const response = await fetch(`/api/rapid-sale-marking/products?franchiseId=${encodeURIComponent(franchiseId)}`);
+                const data = await response.json();
+                hideLoading();
+                if (data.success) {
+                    if (data.data && data.data.length > 0) {
+                        displayProducts(data.data);
+                    } else {
+                        document.getElementById('productList').innerHTML = '';
+                        document.getElementById('manualProductBlock').style.display = 'block';
+                        showAlert('No active products for franchise ' + franchiseId + ' — enter Product ID manually', 'warning');
+                    }
+                } else {
+                    showAlert(data.message || 'No products available', 'warning');
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function backToSearchFromRapid() {
+            document.getElementById('rapidAddressSelection').style.display = 'none';
+            document.getElementById('productSelection').style.display = 'none';
+            document.getElementById('customerSearch').style.display = 'block';
             document.getElementById('customerResults').style.display = 'block';
         }
 
@@ -496,19 +930,35 @@
             document.getElementById('summaryCustomerName').textContent = customer.name;
             document.getElementById('summaryCityId').textContent = customer.city;
             document.getElementById('customerSummary').style.display = 'block';
-            document.getElementById('customerSearch').style.display = 'none';
-            document.getElementById('productSelection').style.display = 'block';
-            fetchProducts();
+
+            if (customer.rapidEligible) {
+                document.getElementById('customerSearch').style.display = 'none';
+                document.getElementById('rapidAddressSelection').style.display = 'block';
+                loadRapidAddresses(String(customer.id));
+            } else {
+                document.getElementById('customerSearch').style.display = 'none';
+                document.getElementById('productSelection').style.display = 'block';
+                fetchProducts();
+            }
         }
 
         async function fetchProducts() {
             showLoading('Fetching products...');
             try {
-                const response = await fetch(`/api/product/fetch?customerId=${selectedCustomer.id}&cityId=${selectedCustomer.city}`);
+                const cityId = selectedCustomer.city && selectedCustomer.city !== 'N/A' ? selectedCustomer.city : '';
+                let url = `/api/product/fetch?customerId=${encodeURIComponent(selectedCustomer.customerId)}`;
+                if (cityId) url += `&cityId=${encodeURIComponent(cityId)}`;
+                const response = await fetch(url);
                 const data = await response.json();
                 hideLoading();
                 if (data.success) {
-                    displayProducts(data.data);
+                    if (data.data && data.data.length > 0) {
+                        displayProducts(data.data);
+                    } else {
+                        document.getElementById('productList').innerHTML = '';
+                        document.getElementById('manualProductBlock').style.display = 'block';
+                        showAlert('No catalog products for this customer — enter Product ID manually', 'warning');
+                    }
                 } else {
                     showAlert('No products available', 'warning');
                 }
@@ -518,30 +968,55 @@
             }
         }
 
+        function addManualProduct() {
+            const pidInput = document.getElementById('manualProductId').value;
+            const pid = parseInt(pidInput);
+            if (!pid || isNaN(pid)) { showAlert('Enter a valid Product ID', 'error'); return; }
+            const qty = parseInt(document.getElementById('manualQty').value) || 1;
+            const type = document.getElementById('manualType').value;
+            if (selectedProducts.some(p => p.id === pid)) { showAlert('Product ' + pid + ' already added', 'warning'); return; }
+            selectedProducts.push({ id: pid, name: 'Product ' + pid, quantity: qty, order_type: type });
+            renderManualSelected();
+            document.getElementById('manualProductId').value = '';
+            showAlert('Product ' + pid + ' added (qty ' + qty + ', ' + type + ')', 'success');
+        }
+
+        function removeManualProduct(pid) {
+            selectedProducts = selectedProducts.filter(p => p.id !== pid);
+            renderManualSelected();
+        }
+
+        function renderManualSelected() {
+            const container = document.getElementById('manualSelected');
+            container.innerHTML = selectedProducts.map(p => `
+                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #eee;">
+                    <span>${p.name} × ${p.quantity} (${p.order_type})</span>
+                    <span style="cursor:pointer; color:#b91c1c;" onclick="removeManualProduct(${p.id})">✕ Remove</span>
+                </div>`).join('') || '<span style="color:#94a3b8;">No products added yet.</span>';
+        }
+
         function displayProducts(products) {
             const productList = document.getElementById('productList');
             productList.innerHTML = products.map(p => `
                 <div class="product-item" id="prod-${p.id}">
                     <input type="checkbox" class="product-checkbox" onchange="toggleProduct(this, ${p.id}, '${p.name}')">
-                    <div style="flex: 1;">
+                    <div class="product-info">
                         <div class="product-name">${p.name}</div>
                         <div class="product-meta">${p.description || ''}</div>
                     </div>
-                    <input type="number" min="1" value="1" class="quantity-input" id="qty-${p.id}">
-                    <select class="order-type" id="type-${p.id}">
+                    <input type="number" min="1" value="1" class="quantity-input" id="qty-${p.id}" onchange="syncProductInput(${p.id})">
+                    <select class="order-type" id="type-${p.id}" onchange="syncProductInput(${p.id})">
                         <option>daily</option>
                         <option>weekend</option>
                         <option>alternate</option>
                     </select>
-                </div>
-            `).join('');
+                </div>`).join('');
         }
 
         function toggleProduct(checkbox, productId, productName) {
-            const qty = parseInt(document.getElementById(`qty-${productId}`).value);
-            const type = document.getElementById(`type-${productId}`).value;
-
             if (checkbox.checked) {
+                const qty = parseInt(document.getElementById(`qty-${productId}`).value);
+                const type = document.getElementById(`type-${productId}`).value;
                 selectedProducts.push({ id: productId, name: productName, quantity: qty, order_type: type });
                 document.getElementById(`prod-${productId}`).classList.add('selected');
             } else {
@@ -550,70 +1025,615 @@
             }
         }
 
-        function proceedToOrder() {
-            if (selectedProducts.length === 0) {
-                showAlert('Please select at least one product', 'error');
-                return;
+        function syncProductInput(productId) {
+            const product = selectedProducts.find(p => p.id === productId);
+            if (!product) return;
+            const qtyInput = document.getElementById(`qty-${productId}`);
+            const typeSelect = document.getElementById(`type-${productId}`);
+            if (qtyInput) {
+                const qty = parseInt(qtyInput.value);
+                if (!isNaN(qty) && qty > 0) product.quantity = qty;
             }
+            if (typeSelect) product.order_type = typeSelect.value;
+        }
+
+        function proceedToOrder() {
+            if (selectedProducts.length === 0) { showAlert('Please select at least one product', 'error'); return; }
+            selectedProducts.forEach(p => syncProductInput(p.id));
             const summary = document.getElementById('orderSummary');
             summary.innerHTML = selectedProducts.map(p => `
                 <div class="summary-item">
                     <span>${p.name}</span>
-                    <span>Qty: ${p.quantity} | ${p.order_type}</span>
-                </div>
-            `).join('');
+                    <span>Qty: ${p.quantity} · ${p.order_type}</span>
+                </div>`).join('');
             document.getElementById('productSelection').style.display = 'none';
             document.getElementById('orderCompletion').style.display = 'block';
+            setDefaultSaleDate();
+        }
+
+        function backFromConfirm() {
+            document.getElementById('orderCompletion').style.display = 'none';
+            if (getRapidScenarioMode() === 'ONLY_MARK') {
+                document.getElementById('rapidAddressSelection').style.display = 'block';
+            } else {
+                document.getElementById('productSelection').style.display = 'block';
+            }
         }
 
         async function completeOrder() {
-            showLoading('Processing order & marking sale...');
+            const saleType = getSelectedSaleType();
+            if (!saleType) { showAlert('Please select Full Sale or Non Delivery.', 'error'); return; }
+
+            let ndReasonId = null;
+            if (saleType === 'NON_DELIVERY') {
+                ndReasonId = document.getElementById('ndReasonSelect').value;
+                if (!ndReasonId) { showAlert('Please select an ND Reason.', 'error'); return; }
+                ndReasonId = parseInt(ndReasonId);
+            }
+
+            // Rapid customers place the order through the rapid API instead
+            if (selectedCustomer && selectedCustomer.rapidEligible) {
+                await completeRapidOrder();
+                return;
+            }
+
+            openProcessLog();
             try {
-                const response = await fetch('/api/order/place-and-mark', {
+                const saleDateEl = document.getElementById('saleDateInput');
+                let saleDate = saleDateEl && saleDateEl.value ? saleDateEl.value : new Date().toISOString().split('T')[0];
+                saleDate = convertDateToDisplay(saleDate);
+
+                const payload = {
+                    customerId: selectedCustomer.customerId,
+                    customerName: selectedCustomer.name,
+                    cityId: selectedCustomer.city,
+                    latitude: null,
+                    longitude: null,
+                    saleDate: saleDate,
+                    saleType: saleType,
+                    ndReasonId: ndReasonId,
+                    products: selectedProducts
+                };
+
+                const response = await fetch('/api/order/place-and-mark/stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        customerId: selectedCustomer.customerId,
-                        customerName: selectedCustomer.name,
-                        cityId: selectedCustomer.city,
-                        latitude: null,
-                        longitude: null,
-                        products: selectedProducts
-                    })
+                    body: JSON.stringify(payload)
                 });
-                const result = await response.json();
-                hideLoading();
-                if (result.success) {
-                    showAlert('✅ Sale marked successfully!', 'success');
+                if (!response.ok) {
+                    const errBody = await response.text();
+                    throw new Error('HTTP ' + response.status + ' - ' + errBody);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let final = null;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const frames = buffer.split(/\r?\n\r?\n/);
+                    buffer = frames.pop();
+                    for (const frame of frames) {
+                        const evt = parseSseFrame(frame);
+                        if (evt) final = handleProcessEvent(evt) || final;
+                    }
+                }
+
+                if (final && final.success) {
+                    setProcessStatus('DONE');
+                    appendProcessLog('success', saleType === 'NON_DELIVERY'
+                        ? '✅ Non Delivery marked successfully!'
+                        : '✅ Sale marked successfully!');
+                    showAlert(saleType === 'NON_DELIVERY'
+                        ? '✅ Non Delivery marked successfully!'
+                        : '✅ Sale marked successfully!', 'success');
                     resetForm();
-                } else {
-                    showAlert(`Error: ${result.message}`, 'error');
+                } else if (final) {
+                    setProcessStatus('FAILED');
+                    appendProcessLog('error', '❌ ' + (final.message || 'Workflow failed'));
+                    showAlert(`Error: ${final.message}`, 'error');
                 }
             } catch (error) {
-                hideLoading();
+                setProcessStatus('FAILED');
+                appendProcessLog('error', '❌ ' + error.message);
                 showAlert(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function completeRapidOrder() {
+            rapidScenarioMode = getRapidScenarioMode();
+
+            if (rapidScenarioMode === 'ONLY_MARK') {
+                if (!selectedCustomer) { showAlert('Please select a customer first.', 'error'); return; }
+                openProcessLog();
+                try {
+                    const payload = {
+                        customerId: String(selectedCustomer.id),
+                        mode: 'ONLY_MARK'
+                    };
+                    appendProcessLog('step', 'Only Sale Mark — fetching latest already-placed order');
+                    const response = await fetch('/api/rapid-sale-marking/order', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) {
+                        throw new Error((data.message || 'HTTP ' + response.status));
+                    }
+                    appendProcessLog('success', '✅ ' + (data.message || 'Latest order fetched'));
+                    appendProcessLog('log', 'Order: ' + (data.orderNumber || '') + ' (id ' + (data.orderId || '') + ', franchise ' + (data.franchiseId || '') + ')');
+                    appendProcessLog('log', 'Order data: ' + JSON.stringify(data.order || {}));
+                    setProcessStatus('DONE');
+                    showAlert('✅ ' + (data.message || 'Latest order fetched for sale marking!'), 'success');
+                    resetForm();
+                } catch (error) {
+                    setProcessStatus('FAILED');
+                    appendProcessLog('error', '❌ ' + error.message);
+                    showAlert(`Error: ${error.message}`, 'error');
+                }
+                return;
+            }
+
+            if (selectedProducts.length === 0) { showAlert('Please select at least one product.', 'error'); return; }
+            if (!selectedRapidFranchiseId) { showAlert('No franchise resolved. Go back and select an address.', 'error'); return; }
+
+            openProcessLog();
+            try {
+                const products = selectedProducts.map(p => ({ id: p.id, quantity: p.quantity || 1 }));
+                const payload = {
+                    customerId: String(selectedCustomer.id),
+                    franchiseId: selectedRapidFranchiseId,
+                    selectedAddressId: selectedRapidAddressId ? parseInt(selectedRapidAddressId) : null,
+                    products: products,
+                    mode: 'PLACE_AND_MARK'
+                };
+
+                appendProcessLog('step', 'Step-4 — Placing rapid order via /api/order');
+                const response = await fetch('/api/rapid-sale-marking/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.success) {
+                    throw new Error((data.message || 'HTTP ' + response.status));
+                }
+
+                appendProcessLog('success', '✅ Rapid order placed: ' + (data.message || ''));
+                const resp = data.response || '';
+                appendProcessLog('log', 'Order response: ' + resp);
+                setProcessStatus('DONE');
+                showAlert('✅ ' + (data.message || 'Rapid order placed successfully!'), 'success');
+                resetForm();
+            } catch (error) {
+                setProcessStatus('FAILED');
+                appendProcessLog('error', '❌ ' + error.message);
+                showAlert(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        /* ================= Live Process Log ================= */
+        function openProcessLog() {
+            const modal = document.getElementById('processLogModal');
+            document.getElementById('processLogBody').innerHTML = '';
+            setProcessStatus('RUNNING');
+            modal.style.display = 'block';
+        }
+
+        function closeProcessLog() {
+            document.getElementById('processLogModal').style.display = 'none';
+        }
+
+        function setProcessStatus(status) {
+            const el = document.getElementById('processLogStatus');
+            if (!el) return;
+            el.textContent = status;
+            el.className = 'env-badge' + (status === 'FAILED' ? ' uat' : '');
+        }
+
+        function appendProcessLog(type, text) {
+            const body = document.getElementById('processLogBody');
+            if (!body) return;
+            const time = new Date().toLocaleTimeString();
+            const colors = { log: '#cbd5e1', step: '#38bdf8', success: '#4ade80', warn: '#fbbf24', error: '#f87171' };
+            const line = document.createElement('div');
+            line.style.color = colors[type] || colors.log;
+            line.style.whiteSpace = 'pre-wrap';
+            line.style.wordBreak = 'break-word';
+            line.textContent = `[${time}] ${text}`;
+            body.appendChild(line);
+            body.scrollTop = body.scrollHeight;
+        }
+
+        function parseSseFrame(frame) {
+            let event = 'message', data = '';
+            frame.split(/\r?\n/).forEach(line => {
+                if (line.startsWith('event:')) event = line.slice(6).trim();
+                else if (line.startsWith('data:')) data += (data ? '\n' : '') + line.slice(5).trim();
+            });
+            if (!data) return null;
+            try { data = JSON.parse(data); } catch (e) {}
+            return { event: event, data: data };
+        }
+
+        function handleProcessEvent(evt) {
+            const d = evt.data;
+            if (!d || typeof d !== 'object') return null;
+            if (evt.event === 'progress') {
+                if (d.type === 'log') {
+                    appendProcessLog('log', d.message || '');
+                } else if (d.type === 'step') {
+                    appendProcessLog(d.status === 'SUCCESS' ? 'step'
+                        : (d.status && d.status.startsWith('FAILED') ? 'error' : 'warn'),
+                        d.step + ' — ' + (d.status || ''));
+                }
+                return null;
+            }
+            if (evt.event === 'error') {
+                setProcessStatus('FAILED');
+                appendProcessLog('error', '❌ ' + (d.message || 'Workflow failed'));
+                return d;
+            }
+            if (evt.event === 'result') {
+                return d;
+            }
+            return null;
+        }
+
+        function getSelectedSaleType() {
+            const radios = document.querySelectorAll('input[name="saleType"]');
+            for (const r of radios) { if (r.checked) return r.value; }
+            return null;
+        }
+
+        function onSaleTypeChange() {
+            const saleType = getSelectedSaleType();
+            const ndGroup = document.getElementById('ndReasonGroup');
+            if (saleType === 'NON_DELIVERY') {
+                ndGroup.style.display = 'block';
+                document.getElementById('ndReasonEmptyMsg').style.display = 'none';
+                fetchNdReasons();
+            } else {
+                ndGroup.style.display = 'none';
+                document.getElementById('ndReasonSelect').value = '';
+            }
+        }
+
+        async function fetchNdReasons() {
+            if (ndReasonsLoaded) return;
+            ndReasonsLoaded = true;
+            const select = document.getElementById('ndReasonSelect');
+            const emptyMsg = document.getElementById('ndReasonEmptyMsg');
+            select.innerHTML = '<option value="">Loading ND reasons...</option>';
+            emptyMsg.style.display = 'none';
+            try {
+                const response = await fetch('/api/order/nd-reasons');
+                const data = await response.json();
+                if (data.success && data.data && data.data.length > 0) {
+                    select.innerHTML = '<option value="">Select ND Reason</option>' + data.data.map(r =>
+                        `<option value="${r.id}">${r.reason || ('Issue ' + r.id)}</option>`).join('');
+                } else {
+                    select.innerHTML = '<option value="">No ND reason available</option>';
+                    emptyMsg.textContent = 'No ND reason available. Non Delivery cannot be marked.';
+                    emptyMsg.style.display = 'block';
+                }
+            } catch (error) {
+                ndReasonsLoaded = false;
+                select.innerHTML = '<option value="">Failed to load ND reasons</option>';
+                emptyMsg.textContent = 'Failed to load ND reasons: ' + error.message;
+                emptyMsg.style.display = 'block';
+                showAlert(`Failed to load ND reasons: ${error.message}`, 'error');
+            }
+        }
+
+        function updateSaleDateLabel() {
+            const el = document.getElementById('saleDateInput');
+            if (el && el.value) {
+                showAlert(`Sale will be registered on ${convertDateToDisplay(el.value)}`, 'info');
+            }
+        }
+
+        function convertDateToDisplay(dateStr) {
+            if (!dateStr) return dateStr;
+            const parts = dateStr.split('-');
+            if (parts.length === 3 && parts[0].length === 4) {
+                return `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            return dateStr;
+        }
+
+        function setDefaultSaleDate() {
+            const el = document.getElementById('saleDateInput');
+            if (el) {
+                const now = new Date();
+                const yyyy = now.getFullYear();
+                const mm = String(now.getMonth() + 1).padStart(2, '0');
+                const dd = String(now.getDate()).padStart(2, '0');
+                el.value = `${yyyy}-${mm}-${dd}`;
             }
         }
 
         function backToSearch() {
             document.getElementById('productSelection').style.display = 'none';
-            document.getElementById('customerSearch').style.display = 'block';
+            document.getElementById('manualProductBlock').style.display = 'none';
+            document.getElementById('manualSelected').innerHTML = '';
             selectedProducts = [];
+            if (selectedCustomer && selectedCustomer.rapidEligible) {
+                document.getElementById('rapidAddressSelection').style.display = 'block';
+            } else {
+                document.getElementById('customerSearch').style.display = 'block';
+            }
         }
 
         function resetForm() {
             document.getElementById('phoneInput').value = '';
             document.getElementById('customerResults').style.display = 'none';
             document.getElementById('orderCompletion').style.display = 'none';
+            document.getElementById('productSelection').style.display = 'none';
+            document.getElementById('rapidAddressSelection').style.display = 'none';
+            document.getElementById('manualProductBlock').style.display = 'none';
+            document.getElementById('manualSelected').innerHTML = '';
             document.getElementById('customerSearch').style.display = 'block';
+            document.querySelectorAll('input[name="saleType"]').forEach(r => r.checked = false);
+            document.getElementById('ndReasonGroup').style.display = 'none';
+            document.getElementById('ndReasonSelect').value = '';
+            document.getElementById('ndReasonEmptyMsg').style.display = 'none';
             selectedCustomer = null;
             selectedProducts = [];
+            ndReasonsLoaded = false;
+            customerResultsCache = [];
+            selectedRapidAddressId = null;
+            selectedRapidFranchiseId = null;
+            rapidScenarioMode = 'PLACE_AND_MARK';
+            const scenarioRadios = document.querySelectorAll('input[name="rapidScenario"]');
+            scenarioRadios.forEach(r => r.checked = (r.value === 'PLACE_AND_MARK'));
         }
 
+        /* ================= ND REASONS FEATURE ================= */
+        async function loadNdReasonsPanel() {
+            const tableEl = document.getElementById('ndReasonsTable');
+            tableEl.innerHTML = '<span style="color:#94a3b8;">Loading...</span>';
+            document.getElementById('ndRemarksWrap').style.display = 'none';
+            try {
+                const response = await fetch('/api/order/nd-reasons');
+                const data = await response.json();
+                if (data.success && data.data && data.data.length > 0) {
+                    tableEl.innerHTML = `
+                        <table class="apitable">
+                            <thead><tr><th>ID</th><th>Reason</th><th>Sub Reason</th><th></th></tr></thead>
+                            <tbody>${data.data.map(r => `
+                                <tr>
+                                    <td>${r.id}</td>
+                                    <td>${r.reason || '-'}</td>
+                                    <td>${r.sub_reason || '-'}</td>
+                                    <td><button class="btn btn-secondary btn-sm" onclick="viewRemarks(${r.id})">View Mapping</button></td>
+                                </tr>`).join('')}</tbody>
+                        </table>`;
+                } else {
+                    tableEl.innerHTML = '<div class="alert alert-warning">No active ND reasons found.</div>';
+                }
+            } catch (error) {
+                tableEl.innerHTML = `<div class="alert alert-error">Failed to load: ${error.message}</div>`;
+            }
+        }
+
+        async function viewRemarks(issueId) {
+            const wrap = document.getElementById('ndRemarksWrap');
+            const tableEl = document.getElementById('ndRemarksTable');
+            document.getElementById('ndRemarksIssue').textContent = issueId;
+            wrap.style.display = 'block';
+            tableEl.innerHTML = '<span style="color:#94a3b8;">Loading...</span>';
+            try {
+                const response = await fetch(`/api/order/nd-remarks/${issueId}`);
+                const data = await response.json();
+                if (data.success && data.data && data.data.length > 0) {
+                    tableEl.innerHTML = `
+                        <table class="apitable">
+                            <thead><tr><th>Remark ID</th><th>Description</th><th>Sale Dist. Detail</th></tr></thead>
+                            <tbody>${data.data.map(r => `
+                                <tr>
+                                    <td>${r.remark_id}</td>
+                                    <td>${r.description || '-'}</td>
+                                    <td>${r.sale_distribution_detail_id || '-'}</td>
+                                </tr>`).join('')}</tbody>
+                        </table>`;
+                } else {
+                    tableEl.innerHTML = '<div class="alert alert-warning">No remark mapping found for issue ' + issueId + '.</div>';
+                }
+            } catch (error) {
+                tableEl.innerHTML = `<div class="alert alert-error">Failed to load: ${error.message}</div>`;
+            }
+        }
+
+        /* ================= ROUTE SHEET FEATURE ================= */
+        async function viewRouteSheet() {
+            const customerId = document.getElementById('routeSheetCustomerId').value.trim();
+            const resultEl = document.getElementById('routeSheetResult');
+            if (!customerId) { showAlert('Please enter a customer ID', 'error'); return; }
+            resultEl.innerHTML = '<span style="color:#94a3b8;">Loading...</span>';
+            try {
+                const response = await fetch(`/api/order/route-sheet/${encodeURIComponent(customerId)}`);
+                const data = await response.json();
+                if (data.success && data.data && Object.keys(data.data).length > 0) {
+                    const d = data.data;
+                    resultEl.innerHTML = `
+                        <div class="form-row" style="margin-top:14px;">
+                            <div class="stat-card"><div class="stat-label">Route Sheet ID</div><div class="stat-value">${d.id ?? '-'}</div></div>
+                            <div class="stat-card"><div class="stat-label">Customer</div><div class="stat-value">${d.customer ?? '-'}</div></div>
+                            <div class="stat-card"><div class="stat-label">Date</div><div class="stat-value">${d.date ? String(d.date).substring(0,10) : '-'}</div></div>
+                        </div>
+                        <pre class="json">${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultEl.innerHTML = '<div class="alert alert-warning">No route sheet found for customer ' + customerId + '.</div>';
+                }
+            } catch (error) {
+                resultEl.innerHTML = `<div class="alert alert-error">Failed to load: ${error.message}</div>`;
+            }
+        }
+
+        /* ================= SETTINGS FEATURE ================= */
+        async function loadSettingsPanel() {
+            const infoEl = document.getElementById('settingsInfo');
+            try {
+                const response = await fetch('/api/environment');
+                const data = await response.json();
+                const isUat = data.env && data.env.toUpperCase() === 'UAT';
+                infoEl.innerHTML = `
+                    <table class="apitable">
+                        <tbody>
+                            <tr><td style="width:220px;"><strong>Environment</strong></td><td>${(data.env || 'QA').toUpperCase()}</td></tr>
+                            <tr><td><strong>CMS API Base URL</strong></td><td>${isUat ? 'https://uat-cms.countrydelight.in' : 'https://qa-cms.countrydelight.in'}</td></tr>
+                            <tr><td><strong>Admin URL</strong></td><td>${isUat ? 'https://uat-crm.countrydelight.in/admin/' : 'https://qa-crm.countrydelight.in/admin/'}</td></tr>
+                            <tr><td><strong>Database</strong></td><td>beejapuri_${(data.env || 'QA').toUpperCase()}</td></tr>
+                            <tr><td><strong>Host</strong></td><td>non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306</td></tr>
+                            <tr><td><strong>Sale Workflow</strong></td><td>POST /api/order/place-and-mark (auto place → route sheet → mark sale)</td></tr>
+                        </tbody>
+                    </table>`;
+            } catch (error) {
+                infoEl.innerHTML = `<div class="alert alert-error">Failed to load settings: ${error.message}</div>`;
+            }
+        }
+
+        /* ================= COMPLAINT CLEAN UP FEATURE ================= */
+        const COMPLAINT_DATABASES = [
+            'complaintmanagement_QA', 'complaintmanagement_UAT',
+            'beejapuri_QA', 'beejapuri_UAT',
+            'rapiddelivery_QA', 'rapiddelivery_UAT'
+        ];
+
+        function renderComplaintDbList() {
+            const container = document.getElementById('ccDbList');
+            if (!container) return;
+            container.innerHTML = COMPLAINT_DATABASES.map(db => {
+                const isUat = db.endsWith('_UAT');
+                return `
+                    <label class="db-check">
+                        <input type="checkbox" value="${db}" checked>
+                        <span>${db}</span>
+                        <span class="env-badge ${isUat ? 'uat' : ''}" style="font-size:10px; padding:2px 8px;">${isUat ? 'UAT' : 'QA'}</span>
+                    </label>`;
+            }).join('');
+        }
+
+        function getSelectedComplaintDatabases() {
+            return Array.from(document.querySelectorAll('#ccDbList input[type="checkbox"]:checked'))
+                .map(cb => cb.value);
+        }
+
+        function parseComplaintMobiles(raw) {
+            const parts = raw.split(/[,;\n]+/).map(s => s.trim()).filter(s => s.length > 0);
+            const cleaned = [];
+            for (const p of parts) {
+                let digits = p.replace(/\D/g, '');
+                if (digits.length === 11 && digits.startsWith('0')) digits = digits.substring(1);
+                else if (digits.length === 12 && digits.startsWith('91')) digits = digits.substring(2);
+                if (!/^\d{10}$/.test(digits)) {
+                    showAlert(`Invalid mobile number: ${p} (must be 10 digits)`, 'error');
+                    return null;
+                }
+                if (!cleaned.includes(digits)) cleaned.push(digits);
+            }
+            return cleaned;
+        }
+
+        async function runComplaintCleanup() {
+            const mobiles = parseComplaintMobiles(document.getElementById('ccMobiles').value);
+            if (!mobiles) return;
+            const databases = getSelectedComplaintDatabases();
+            if (databases.length === 0) { showAlert('Select at least one database', 'error'); return; }
+
+            const resultEl = document.getElementById('ccResult');
+            resultEl.innerHTML = '';
+            showLoading(`Cleaning complaints for ${mobiles.length} mobile(s) across ${databases.length} database(s)...`);
+            try {
+                const response = await fetch('/api/complaint/cleanup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobiles: mobiles, databases: databases })
+                });
+                const data = await response.json();
+                hideLoading();
+                if (data.success) {
+                    renderComplaintCleanupResult(data.data);
+                    showAlert('✅ Complaint cleanup completed', 'success');
+                } else {
+                    showAlert(`Error: ${data.message}`, 'error');
+                    resultEl.innerHTML = `<div class="alert alert-error">${data.message}</div>`;
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+                resultEl.innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+            }
+        }
+
+        function renderComplaintCleanupResult(result) {
+            const targetId = result.targetCustomerId;
+            const resultEl = document.getElementById('ccResult');
+            let totalMoved = 0;
+            let html = `<div class="stats-grid" style="margin-bottom:16px;">
+                <div class="stat-card"><div class="stat-label">Databases run</div><div class="stat-value">${result.results.length}</div></div>
+                <div class="stat-card"><div class="stat-label">Target ID</div><div class="stat-value">${targetId}</div></div>
+            </div>`;
+
+            html += result.results.map(dbRes => {
+                let dbHtml = '';
+                let found = 0, moved = 0;
+                const rows = dbRes.updates.map(u => {
+                    const isErr = u.status === 'ERROR' || u.status === 'CUSTOMER_NOT_FOUND';
+                    const badgeClass = u.status === 'UPDATED' ? 'alert-success' : (isErr ? 'alert-error' : 'alert-warning');
+                    const statusTxt = u.status === 'CUSTOMER_NOT_FOUND' ? 'Customer not found'
+                        : u.status === 'ALREADY_TARGET' ? 'Already target'
+                        : u.status === 'ERROR' ? 'Error'
+                        : 'Updated';
+                    if (u.complaintsFound) found += u.complaintsFound;
+                    if (u.complaintsUpdated) moved += u.complaintsUpdated;
+                    dbHtml += `
+                        <tr>
+                            <td>${u.mobile}</td>
+                            <td>${u.customerId || '-'}</td>
+                            <td>${u.complaintsFound ?? '-'}</td>
+                            <td>${u.complaintsUpdated ?? '-'}</td>
+                            <td><span class="alert ${badgeClass}" style="padding:2px 8px; font-size:11px;">${statusTxt}</span></td>
+                            <td>${u.message || ''}</td>
+                        </tr>`;
+                });
+                totalMoved += moved;
+                return `
+                    <div class="card">
+                        <h2>${dbRes.database} <span class="env-badge ${dbRes.env === 'UAT' ? 'uat' : ''}">${dbRes.env}</span></h2>
+                        <div class="subtitle">Found: ${found} · Moved to ${targetId}: ${moved}</div>
+                        <table class="apitable">
+                            <thead><tr><th>Mobile</th><th>Old Customer ID</th><th>Found</th><th>Moved</th><th>Status</th><th>Message</th></tr></thead>
+                            <tbody>${dbHtml || '<tr><td colspan="6">No updates</td></tr>'}</tbody>
+                        </table>
+                    </div>`;
+            }).join('');
+
+            html = `<div class="card">
+                <h2>Total complaints moved to ${targetId}: <strong>${totalMoved}</strong></h2>
+            </div>` + html;
+
+            resultEl.innerHTML = html;
+        }
+
+        /* ================= Boot ================= */
+        renderSidebar();
+
         document.addEventListener('DOMContentLoaded', () => {
-            loadEnvironment();
+            navigateTo('dashboard');
+            loadCurrentEnvironment();
+            const endpointCount = document.querySelectorAll('.feature-panel[data-feature="dashboard"] table.apitable tbody tr').length;
+            document.getElementById('statEndpoints').textContent = endpointCount || 8;
             document.getElementById('phoneInput').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') searchCustomer();
+            });
+            document.getElementById('routeSheetCustomerId').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') viewRouteSheet();
             });
         });
     </script>

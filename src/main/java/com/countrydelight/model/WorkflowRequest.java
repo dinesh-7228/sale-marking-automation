@@ -12,6 +12,8 @@ public class WorkflowRequest {
     public Double latitude;
     public Double longitude;
     public String saleDate;
+    public String saleType;
+    public Integer ndReasonId;
 
     public WorkflowRequest() {
     }
@@ -40,6 +42,8 @@ public class WorkflowRequest {
                 ", latitude=" + latitude +
                 ", longitude=" + longitude +
                 ", saleDate='" + saleDate + '\'' +
+                ", saleType='" + saleType + '\'' +
+                ", ndReasonId=" + ndReasonId +
                 '}';
     }
 }

@@ -258,7 +258,7 @@ public class InteractiveWorkflowController {
     }
 
     /**
-     * Step 8: Generate route sheet
+     * Step 8: Generate route sheet (Voice API) + verify it exists for TOMORROW
      */
     @PostMapping("/step8-generate-route-sheet")
     public ResponseEntity<?> generateRouteSheet() {
@@ -271,23 +271,28 @@ public class InteractiveWorkflowController {
                     "message", "Customer ID not found. Complete previous steps first."
                 ));
             }
-            
+
+            // Hit the CMS voice API to generate the route sheet
             Map<String, Object> routeSheet = workflowService.generateRouteSheet(customerId);
             workflowService.setRouteSheet(routeSheet);
-            Long routeSheetId = workflowService.extractRouteSheetId(routeSheet);
-            if (routeSheetId == null) {
-                // generate route sheet API returns no id -> read it from the DB
-                routeSheetId = workflowService.fetchLatestRouteSheetId(customerId);
-                if (routeSheetId != null) {
-                    workflowService.setRouteSheetId(routeSheetId);
-                }
+
+            // Verify route sheet exists for TOMORROW — exit if it does not
+            String tomorrow = java.time.LocalDate.now().plusDays(1).toString();
+            Long tomorrowId = workflowService.getRouteSheetIdForTomorrow(customerId);
+            if (tomorrowId == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "EXITING: No route sheet generated for tomorrow (" + tomorrow + ") for customer " + customerId + ". Cannot proceed."
+                ));
             }
-            workflowService.setRouteSheetId(routeSheetId);
-            
+
+            workflowService.setRouteSheetId(tomorrowId);
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Route sheet generated successfully",
-                "routeSheetId", routeSheetId,
+                "message", "Route sheet generated & verified for tomorrow (" + tomorrow + ")",
+                "routeSheetId", tomorrowId,
+                "routeSheetDate", tomorrow,
                 "nextStep", "Step 9: Update route sheet date to today"
             ));
         } catch (Exception e) {
@@ -392,6 +397,33 @@ public class InteractiveWorkflowController {
                 if (lon != null) longitude = ((Number) lon).doubleValue();
             }
             
+            String saleType = request != null ? (String) request.get("saleType") : null;
+            if (saleType == null || saleType.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Please select Full Sale or Non Delivery."
+                ));
+            }
+            saleType = saleType.trim().toUpperCase();
+            if (!"FULL_SALE".equals(saleType) && !"NON_DELIVERY".equals(saleType)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Sale type must be FULL_SALE or NON_DELIVERY"
+                ));
+            }
+            
+            Integer ndReasonId = null;
+            if ("NON_DELIVERY".equals(saleType)) {
+                Object ndReason = request != null ? request.get("ndReasonId") : null;
+                if (ndReason == null) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Please select an ND Reason."
+                    ));
+                }
+                ndReasonId = ((Number) ndReason).intValue();
+            }
+            
             List<Map<String, Object>> products = workflowService.getSelectedProducts();
             if (products == null || products.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -400,11 +432,13 @@ public class InteractiveWorkflowController {
                 ));
             }
             
-            workflowService.markSale(deliveryId, products, latitude, longitude, workflowService.getSaleDate());
+            workflowService.markSale(deliveryId, products, latitude, longitude, workflowService.getSaleDate(), saleType, ndReasonId);
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Sale marked successfully",
+                "saleType", saleType,
+                "ndReasonId", ndReasonId,
+                "message", "Sale " + (ndReasonId != null ? "(NON_DELIVERY)" : "marked") + " successfully",
                 "nextStep", "Workflow completed!"
             ));
         } catch (Exception e) {
@@ -432,6 +466,28 @@ public class InteractiveWorkflowController {
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
                 "message", "Error executing workflow: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Fetch active non-delivery reasons from the `issue` table (id DESC)
+     * for the current environment — used to populate the ND Reason dropdown.
+     */
+    @GetMapping("/nd-reasons")
+    public ResponseEntity<?> getNdReasons() {
+        try {
+            List<Map<String, Object>> reasons = workflowService.getNdReasons();
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "count", reasons.size(),
+                "data", reasons,
+                "message", "✓ ND reasons fetched from issue table"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", "Error fetching ND reasons: " + e.getMessage()
             ));
         }
     }

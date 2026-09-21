@@ -15,13 +15,16 @@ public class EnvironmentConfig {
     public static class QaConfig {
         public String cmsUrl = "https://qa-cms.countrydelight.in";
         public String adminUrl = "https://qa-crm.countrydelight.in/admin/";
+        public String rapidUrl = "https://qa-rapid.countrydelight.in";
         public String apiKey = "uZ8Q7mKp2xVdL4tN9sFjR1cW6yH3bG0aT5qX8eM2nP7rL9kD4vB1zC6hJ0wY3fU_cd_membership";
-        public String authToken = "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIyNDA0IiwiaXNzIjoiQ291bnRyeURlbGlnaHQiLCJzdWIiOiJVc2VyIEF1dGhlbnRpY2F0aW9uIiwiaWF0IjoxNzg5MDE0ODUwLCJleHAiOjE3ODkwNDcyNTB9.R3y4iaUSpOjdOXBVX7gVCKNUG56sYID-ATbiodoUBRk";
+        public String authToken = "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIyNDA0IiwiaXNzIjoiQ291bnRyeURlbGlnaHQiLCJzdWIiOiJVc2VyIEF1dGhlbnRpY2F0aW9uIiwiaWF0IjoxNzg5OTY0ODQ0LCJleHAiOjE3ODk5OTcyNDR9.0JI2qwBD3j8v2KkxfnCKaqllmPkqovEDvDhq7OWgnC0";
 
         public String getCmsUrl() { return cmsUrl; }
         public void setCmsUrl(String cmsUrl) { this.cmsUrl = cmsUrl; }
         public String getAdminUrl() { return adminUrl; }
         public void setAdminUrl(String adminUrl) { this.adminUrl = adminUrl; }
+        public String getRapidUrl() { return rapidUrl; }
+        public void setRapidUrl(String rapidUrl) { this.rapidUrl = rapidUrl; }
         public String getApiKey() { return apiKey; }
         public void setApiKey(String apiKey) { this.apiKey = apiKey; }
         public String getAuthToken() { return authToken; }
@@ -31,6 +34,7 @@ public class EnvironmentConfig {
     public static class UatConfig {
         public String cmsUrl = "https://uat-cms.countrydelight.in";
         public String adminUrl = "https://uat-crm.countrydelight.in/admin/";
+        public String rapidUrl = "https://uat-rapid.countrydelight.in";
         public String apiKey = "uZ8Q7mKp2xVdL4tN9sFjR1cW6yH3bG0aT5qX8eM2nP7rL9kD4vB1zC6hJ0wY3fU_cd_membership";
         public String authToken = "eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIyNDA0IiwiaXNzIjoiQ291bnRyeURlbGlnaHQiLCJzdWIiOiJVc2VyIEF1dGhlbnRpY2F0aW9uIiwiaWF0IjoxNzg4OTM3OTUzLCJleHAiOjE3ODg5NzAzNTN9.QzhiVcjxUYY7NGoy4veDzJH2EFnN0oslmjAH3IVl65g";
 
@@ -38,6 +42,8 @@ public class EnvironmentConfig {
         public void setCmsUrl(String cmsUrl) { this.cmsUrl = cmsUrl; }
         public String getAdminUrl() { return adminUrl; }
         public void setAdminUrl(String adminUrl) { this.adminUrl = adminUrl; }
+        public String getRapidUrl() { return rapidUrl; }
+        public void setRapidUrl(String rapidUrl) { this.rapidUrl = rapidUrl; }
         public String getApiKey() { return apiKey; }
         public void setApiKey(String apiKey) { this.apiKey = apiKey; }
         public String getAuthToken() { return authToken; }
@@ -78,6 +84,10 @@ public class EnvironmentConfig {
 
     public String getAdminUrl() {
         return env.equalsIgnoreCase("UAT") ? uat.getAdminUrl() : qa.getAdminUrl();
+    }
+
+    public String getRapidUrl() {
+        return env.equalsIgnoreCase("UAT") ? uat.getRapidUrl() : qa.getRapidUrl();
     }
 
     public String getApiKey() {

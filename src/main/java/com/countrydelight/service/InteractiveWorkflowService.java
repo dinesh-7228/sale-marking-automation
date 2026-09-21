@@ -199,6 +199,17 @@ public class InteractiveWorkflowService {
     }
 
     /**
+     * Step 8 B: Verifies a route sheet exists for TOMORROW for the customer in the DB.
+     * The route sheet must be generated for the next day; if it is not,
+     * the workflow must exit.
+     *
+     * @return tomorrow's route_sheet_details ID, or null if not found
+     */
+    public Long getRouteSheetIdForTomorrow(String customerId) throws Exception {
+        return dbUtil.getRouteSheetIdForTomorrow(customerId);
+    }
+
+    /**
      * Extract route sheet ID from response
      */
     public Long extractRouteSheetId(Map<String, Object> routeSheet) {
@@ -262,13 +273,60 @@ public class InteractiveWorkflowService {
     }
 
     public void markSale(Long deliveryId, List<Map<String, Object>> products, Double latitude, Double longitude, String saleDate) throws Exception {
-        System.out.println("\n=== Marking sale ===");
+        markSale(deliveryId, products, latitude, longitude, saleDate, null, null);
+    }
+
+    /**
+     * Step 11: Mark the sale with sale type support.
+     *
+     * Full Sale    (saleType FULL_SALE or null): original quantities, delivered=true, no ND reason.
+     * Non Delivery (saleType NON_DELIVERY):      every product quantity = 0, delivered=false,
+     *                                            non_delivery_reason = selected issue id.
+     *
+     * @param saleType     "FULL_SALE" or "NON_DELIVERY"
+     * @param ndReasonId   issue id (mandatory for Non Delivery)
+     */
+    public void markSale(Long deliveryId, List<Map<String, Object>> products, Double latitude, Double longitude, String saleDate, String saleType, Integer ndReasonId) throws Exception {
+        boolean nonDelivery = "NON_DELIVERY".equalsIgnoreCase(saleType) || "ND".equalsIgnoreCase(saleType);
+        System.out.println("\n=== Marking sale (" + (nonDelivery ? "NON_DELIVERY" : "FULL_SALE") + ") ===");
         Integer deliveryBoy = null;
         if (customerId != null) {
             deliveryBoy = dbUtil.getDeliveryBoy(customerId);
         }
-        apiClient.saleMarking(deliveryId, products, latitude, longitude, deliveryBoy, saleDate);
+
+        List<Map<String, Object>> saleProducts = products;
+        boolean delivered;
+        Object nonDeliveryReason;
+        if (nonDelivery) {
+            if (ndReasonId == null) {
+                throw new IllegalArgumentException("ND Reason (ndReasonId/issue id) is required for Non Delivery");
+            }
+            if (!dbUtil.isActiveIssue(ndReasonId)) {
+                throw new IllegalArgumentException("Selected ND Reason (issue " + ndReasonId + ") is invalid or inactive");
+            }
+            // Original order quantities stay unchanged - only the payload copy is zeroed.
+            saleProducts = new ArrayList<>();
+            for (Map<String, Object> product : products) {
+                Map<String, Object> zeroed = new HashMap<>(product);
+                zeroed.put("quantity", 0);
+                saleProducts.add(zeroed);
+            }
+            delivered = false;
+            nonDeliveryReason = ndReasonId;
+        } else {
+            delivered = true;
+            nonDeliveryReason = "";
+        }
+
+        apiClient.saleMarking(deliveryId, saleProducts, latitude, longitude, deliveryBoy, saleDate, delivered, nonDeliveryReason);
         System.out.println("✓ Sale marked successfully");
+    }
+
+    /**
+     * Fetch active non-delivery reasons from the `issue` table for the ND dropdown.
+     */
+    public List<Map<String, Object>> getNdReasons() throws Exception {
+        return dbUtil.getNonDeliveryReasons();
     }
 
     /**
@@ -355,8 +413,11 @@ public class InteractiveWorkflowService {
             if (selectedProducts == null || selectedProducts.isEmpty()) {
                 selectedProducts = request.products;
             }
-            markSale(rsId, selectedProducts, request.latitude, request.longitude, saleDate);
-            addStep(steps, "Mark Sale", "SUCCESS");
+            if (request.saleType == null || request.saleType.trim().isEmpty()) {
+                throw new IllegalArgumentException("Sale Type is required (FULL_SALE or NON_DELIVERY)");
+            }
+            markSale(rsId, selectedProducts, request.latitude, request.longitude, saleDate, request.saleType, request.ndReasonId);
+            addStep(steps, "Mark Sale (" + request.saleType.toUpperCase() + ")", "SUCCESS");
 
             response.put("success", true);
             response.put("message", "Complete workflow executed successfully");

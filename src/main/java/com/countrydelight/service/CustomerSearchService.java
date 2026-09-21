@@ -14,6 +14,9 @@ public class CustomerSearchService {
 
     @Autowired
     private ApiClient apiClient;
+
+    @Autowired
+    private RapidSaleMarkingService rapidSaleMarkingService;
     
     @Autowired
     private com.countrydelight.db.DatabaseUtil databaseUtil;
@@ -50,6 +53,7 @@ public class CustomerSearchService {
             for (Map<String, Object> customer : customers) {
                 Object idObj = customer.get("ID");
                 Long customerId = null;
+                boolean matchedRapidCheck = false;
                 if (idObj != null) {
                     try {
                         if (idObj instanceof Number) {
@@ -95,8 +99,29 @@ public class CustomerSearchService {
                                         ? ((Number) cityId).intValue() : Integer.parseInt(cityId.toString()));
                                 System.out.println("🏙️ City resolved via CMS details: " + cityId + " for customer: " + customerId);
                             }
+
+                            // Rapid Sale Marking eligibility (Step-1): check both
+                            // instant_eligibility AND instant_polygon keys from the
+                            // getCustomerDetails API. Rapid eligible only when BOTH are true.
+                            Map<String, Object> rapidEligibility = rapidSaleMarkingService.evaluateRapidEligibility(String.valueOf(customerId), details);
+                            applyRapidEligibility(customer, rapidEligibility);
+                            matchedRapidCheck = true;
                         } catch (Exception cityError) {
                             System.out.println("⚠️ City resolution failed for customer " + customerId + ": " + cityError.getMessage());
+                        }
+                    }
+
+                    // If the rapid check did not run above (e.g. city was already present),
+                    // fetch customer details explicitly and evaluate rapid eligibility.
+                    if (!matchedRapidCheck) {
+                        try {
+                            Map<String, Object> details = apiClient.getCustomerDetails(String.valueOf(customerId));
+                            Map<String, Object> rapidEligibility = rapidSaleMarkingService.evaluateRapidEligibility(String.valueOf(customerId), details);
+                            applyRapidEligibility(customer, rapidEligibility);
+                        } catch (Exception rapidError) {
+                            System.out.println("⚠️ Rapid eligibility check failed for customer " + customerId + ": " + rapidError.getMessage());
+                            customer.put("rapidEligible", false);
+                            customer.put("rapidEligibilityMessage", "Unable to determine rapid eligibility");
                         }
                     }
                 }
@@ -180,5 +205,12 @@ public class CustomerSearchService {
             return ((Map<?, ?>) deliveryAddress).get("city_id");
         }
         return details.get("city_id");
+    }
+
+    private void applyRapidEligibility(Map<String, Object> customer, Map<String, Object> rapidEligibility) {
+        customer.put("rapidEligible", rapidEligibility.getOrDefault("rapidEligible", false));
+        customer.put("instantEligibility", rapidEligibility.getOrDefault("instantEligibility", false));
+        customer.put("instantPolygon", rapidEligibility.getOrDefault("instantPolygon", false));
+        customer.put("rapidEligibilityMessage", rapidEligibility.getOrDefault("message", "Customer is not rapid eligible"));
     }
 }

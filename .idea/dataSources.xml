@@ -9,5 +9,12 @@
       <jdbc-url>jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+    <data-source source="LOCAL" name="rapid DB" uuid="f9296eda-e9c9-4df3-8715-d13de4b01913">
+      <driver-ref>mysql.8</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>com.mysql.cj.jdbc.Driver</jdbc-driver>
+      <jdbc-url>jdbc:mysql://non-prod-app-rapid-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
   </component>
 </project>
