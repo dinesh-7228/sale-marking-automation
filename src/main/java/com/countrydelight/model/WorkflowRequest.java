@@ -11,13 +11,16 @@ public class WorkflowRequest {
     public List<Map<String, Object>> products;
     public Double latitude;
     public Double longitude;
+    public String saleDate;
+    public String saleType;
+    public Integer ndReasonId;
 
     public WorkflowRequest() {
     }
 
     public WorkflowRequest(String environment, String customerNumber, String customerId,
                            Boolean orderAlreadyPlaced, List<Map<String, Object>> products,
-                           Double latitude, Double longitude) {
+                           Double latitude, Double longitude, String saleDate) {
         this.environment = environment;
         this.customerNumber = customerNumber;
         this.customerId = customerId;
@@ -25,6 +28,7 @@ public class WorkflowRequest {
         this.products = products;
         this.latitude = latitude;
         this.longitude = longitude;
+        this.saleDate = saleDate;
     }
 
     @Override
@@ -37,6 +41,9 @@ public class WorkflowRequest {
                 ", products=" + products +
                 ", latitude=" + latitude +
                 ", longitude=" + longitude +
+                ", saleDate='" + saleDate + '\'' +
+                ", saleType='" + saleType + '\'' +
+                ", ndReasonId=" + ndReasonId +
                 '}';
     }
 }

@@ -47,7 +47,12 @@ public class MockApiClient {
     }
 
     public List<Map<String, Object>> fetchProducts(String customerId, Integer cityId) {
-        throw new UnsupportedOperationException("Product fetch requires real CMS API endpoint.");
+        try {
+            return databaseUtil.fetchProductsFromDb(customerId, cityId);
+        } catch (Exception e) {
+            System.err.println("⚠ Database product fetch failed: " + e.getMessage());
+            throw new RuntimeException("Failed to fetch products from database: " + e.getMessage(), e);
+        }
     }
 
     public String placeOrder(String customerId, List<Integer> productIds, 

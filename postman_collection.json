@@ -1,0 +1,420 @@
+{
+  "info": {
+    "name": "Sale Marking Automation API",
+    "description": "Interactive Workflow API for automated sale marking automation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "sale-marking-automation-collection",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Utility Endpoints",
+      "item": [
+        {
+          "name": "Get Workflow State",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/state",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "state"
+              ]
+            },
+            "description": "Get the current workflow state"
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Workflow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/reset",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "reset"
+              ]
+            },
+            "description": "Reset the entire workflow state"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Step-by-Step Flow",
+      "item": [
+        {
+          "name": "Step 1 - Select Environment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"environment\": \"QA\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/step1-environment",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "step1-environment"
+              ]
+            },
+            "description": "Select environment (QA or UAT)"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 2 - Enter Customer Number",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerNumber\": \"9876543210\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/step2-customer-number",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "step2-customer-number"
+              ]
+            },
+            "description": "Enter the customer phone number"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 3 - Search Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/step3-search-customer",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "step3-search-customer"
+              ]
+            },
+            "description": "Search for customer with the provided phone number"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 4 - Get Customer Details",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"12345\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/step4-customer-details",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "step4-customer-details"
+              ]
+            },
+            "description": "Get customer details including city_id and franchise_id"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 5 - Check Order Status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderAlreadyPlaced\": false\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/step5-check-order-status",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "step5-check-order-status"
+              ]
+            },
+            "description": "Check if order is already placed. If false, returns available products"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 6 - Place Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"products\": [\n    {\n      \"id\": 114,\n      \"quantity\": 2,\n      \"order_type\": \"daily\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/step6-place-order",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "step6-place-order"
+              ]
+            },
+            "description": "Select products and place an order"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 8 - Generate Route Sheet",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/step8-generate-route-sheet",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "step8-generate-route-sheet"
+              ]
+            },
+            "description": "Generate route sheet for the order"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 9 - Update Route Sheet Date",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/step9-update-route-sheet-date",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "step9-update-route-sheet-date"
+              ]
+            },
+            "description": "Update route sheet date to today"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 10 - Update Order Date",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/step10-update-order-date",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "step10-update-order-date"
+              ]
+            },
+            "description": "Update order details date to today"
+          },
+          "response": []
+        },
+        {
+          "name": "Step 11 - Mark Sale",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": 28.5355,\n  \"longitude\": 77.3910\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/step11-mark-sale",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "step11-mark-sale"
+              ]
+            },
+            "description": "Mark the sale with optional GPS coordinates"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Complete Workflow",
+      "item": [
+        {
+          "name": "Execute Complete Workflow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"environment\": \"QA\",\n  \"customerNumber\": \"9876543210\",\n  \"customerId\": \"12345\",\n  \"orderAlreadyPlaced\": false,\n  \"products\": [\n    {\n      \"id\": 114,\n      \"quantity\": 2,\n      \"order_type\": \"daily\"\n    }\n  ],\n  \"latitude\": 28.5355,\n  \"longitude\": 77.3910\n}"
+            },
+            "url": {
+              "raw": "http://localhost:8080/api/workflow/complete",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "api",
+                "workflow",
+                "complete"
+              ]
+            },
+            "description": "Execute the entire workflow in one call - Recommended approach"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

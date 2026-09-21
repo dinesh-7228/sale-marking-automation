@@ -1,0 +1,86 @@
+[[1;34mINFO[m] Scanning for projects...
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m-------------< [0;36mcom.countrydelight:sale-marking-automation[0;1m >-------------[m
+[[1;34mINFO[m] [1mBuilding Sale Marking Automation 1.0.0[m
+[[1;34mINFO[m] [1m--------------------------------[ jar ]---------------------------------[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m>>> [0;32mspring-boot-maven-plugin:2.7.14:run[m [1m(default-cli)[0;1m > [0;1mtest-compile[m @ [36msale-marking-automation[0;1m >>>[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-resources-plugin:3.2.0:resources[m [1m(default-resources)[m @ [36msale-marking-automation[0;1m ---[m
+[[1;34mINFO[m] Using 'UTF-8' encoding to copy filtered resources.
+[[1;34mINFO[m] Using 'UTF-8' encoding to copy filtered properties files.
+[[1;34mINFO[m] Copying 1 resource
+[[1;34mINFO[m] Copying 2 resources
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-compiler-plugin:3.11.0:compile[m [1m(default-compile)[m @ [36msale-marking-automation[0;1m ---[m
+[[1;34mINFO[m] Changes detected - recompiling the module! :source
+[[1;34mINFO[m] Compiling 19 source files with javac [debug target 11] to target/classes
+[[1;33mWARNING[m] system modules path not set in conjunction with -source 11
+[[1;34mINFO[m] Annotation processing is enabled because one or more processors were found
+  on the class path. A future release of javac may disable annotation processing
+  unless at least one processor is specified by name (-processor), or a search
+  path is specified (--processor-path, --processor-module-path), or annotation
+  processing is enabled explicitly (-proc:only, -proc:full).
+  Use -Xlint:-options to suppress this message.
+  Use -proc:none to disable annotation processing.
+[[1;34mINFO[m] /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/api/ApiClient.java: Some input files use unchecked or unsafe operations.
+[[1;34mINFO[m] /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/api/ApiClient.java: Recompile with -Xlint:unchecked for details.
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-resources-plugin:3.2.0:testResources[m [1m(default-testResources)[m @ [36msale-marking-automation[0;1m ---[m
+[[1;34mINFO[m] Using 'UTF-8' encoding to copy filtered resources.
+[[1;34mINFO[m] Using 'UTF-8' encoding to copy filtered properties files.
+[[1;34mINFO[m] skip non existing resourceDirectory /home/dinesh/Documents/sale-marking-automation/src/test/resources
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mmaven-compiler-plugin:3.11.0:testCompile[m [1m(default-testCompile)[m @ [36msale-marking-automation[0;1m ---[m
+[[1;34mINFO[m] Changes detected - recompiling the module! :dependency
+[[1;34mINFO[m] Compiling 1 source file with javac [debug target 11] to target/test-classes
+[[1;33mWARNING[m] system modules path not set in conjunction with -source 11
+[[1;34mINFO[m] Annotation processing is enabled because one or more processors were found
+  on the class path. A future release of javac may disable annotation processing
+  unless at least one processor is specified by name (-processor), or a search
+  path is specified (--processor-path, --processor-module-path), or annotation
+  processing is enabled explicitly (-proc:only, -proc:full).
+  Use -Xlint:-options to suppress this message.
+  Use -proc:none to disable annotation processing.
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m<<< [0;32mspring-boot-maven-plugin:2.7.14:run[m [1m(default-cli)[0;1m < [0;1mtest-compile[m @ [36msale-marking-automation[0;1m <<<[m
+[[1;34mINFO[m] 
+[[1;34mINFO[m] 
+[[1;34mINFO[m] [1m--- [0;32mspring-boot-maven-plugin:2.7.14:run[m [1m(default-cli)[m @ [36msale-marking-automation[0;1m ---[m
+[[1;34mINFO[m] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::               (v2.7.14)
+
+2026-04-09 14:46:22.322  INFO 16042 --- [           main] c.countrydelight.SaleMarkingApplication  : Starting SaleMarkingApplication using Java 21.0.10 on dinesh-cd-admin-HP-EliteBook-845-14-inch-G9-Notebook-PC with PID 16042 (/home/dinesh/Documents/sale-marking-automation/target/classes started by dinesh in /home/dinesh/Documents/sale-marking-automation)
+2026-04-09 14:46:22.324 DEBUG 16042 --- [           main] c.countrydelight.SaleMarkingApplication  : Running with Spring Boot v2.7.14, Spring v5.3.29
+2026-04-09 14:46:22.325  INFO 16042 --- [           main] c.countrydelight.SaleMarkingApplication  : No active profile set, falling back to 1 default profile: "default"
+2026-04-09 14:46:23.065  INFO 16042 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8080 (http)
+2026-04-09 14:46:23.073  INFO 16042 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-04-09 14:46:23.073  INFO 16042 --- [           main] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.78]
+2026-04-09 14:46:23.137  INFO 16042 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-04-09 14:46:23.137  INFO 16042 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 630 ms
+2026-04-09 14:46:23.306  INFO 16042 --- [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
+2026-04-09 14:46:23.400  INFO 16042 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8080 (http) with context path ''
+2026-04-09 14:46:23.406  INFO 16042 --- [           main] c.countrydelight.SaleMarkingApplication  : Started SaleMarkingApplication in 1.393 seconds (JVM running for 1.637)
+2026-04-09 14:46:30.624  INFO 16042 --- [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-04-09 14:46:30.624  INFO 16042 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-04-09 14:46:30.625  INFO 16042 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+Customer number set to: 1198107882
+
+=== Searching customer by phone: 1198107882 ===
+🔍 Searching customer by phone: 1198107882
+⚠️  Real API authentication failed. Switching to mock mode for development/testing...
+✓ Using Spring property: db.host = non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com
+✓ Using Spring property: db.port = 3306
+✓ Using Spring property: db.name = beejapuri_QA
+✓ Using Spring property: db.user = dinesh
+✓ Using Spring property: db.password = pjq4gry4ir6QSGh
+🔌 Database Connection URL: jdbc:mysql://non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306/beejapuri_QA
+✓ Found 1 customer(s) for phone: 1198107882
+✓ Found 1 customers

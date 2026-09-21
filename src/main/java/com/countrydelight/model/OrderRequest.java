@@ -21,6 +21,9 @@ public class OrderRequest {
     public Boolean delivered;
     public String deliveryTime;
     public Integer deliveryBoyId;
+    public String saleDate;
+    public String saleType;
+    public Integer ndReasonId;
     
     // Default constructor
     public OrderRequest() {
@@ -129,5 +132,29 @@ public class OrderRequest {
     
     public void setDeliveryBoyId(Integer deliveryBoyId) {
         this.deliveryBoyId = deliveryBoyId;
+    }
+    
+    public String getSaleDate() {
+        return saleDate;
+    }
+    
+    public void setSaleDate(String saleDate) {
+        this.saleDate = saleDate;
+    }
+
+    public String getSaleType() {
+        return saleType;
+    }
+
+    public void setSaleType(String saleType) {
+        this.saleType = saleType;
+    }
+
+    public Integer getNdReasonId() {
+        return ndReasonId;
+    }
+
+    public void setNdReasonId(Integer ndReasonId) {
+        this.ndReasonId = ndReasonId;
     }
 }
