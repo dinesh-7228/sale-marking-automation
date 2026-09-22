@@ -330,6 +330,7 @@
                     <div id="customerSearch">
                         <div class="card">
                             <h2>Step 1 · Search Customer</h2>
+                            <div class="subtitle">Regular (non-rapid) delivery flow — place an order and mark the sale for a customer.</div>
                             <div class="form-group">
                                 <label>Mobile Number</label>
                                 <input type="text" id="phoneInput" placeholder="Enter customer phone number" maxlength="10">
@@ -337,43 +338,6 @@
                             <button class="btn btn-primary" onclick="searchCustomer()">Search Customer</button>
                             <div id="customerResults" style="margin-top:16px; display:none;">
                                 <div class="product-list" id="customerList"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="rapidAddressSelection" style="display:none;">
-                        <div class="card">
-                            <h2>Step 2 · Rapid Scenario &amp; Address <span class="env-badge" style="background:#059669;">Rapid</span></h2>
-                            <div class="subtitle">Choose how to handle this rapid order, then select the delivery address.</div>
-
-                            <div class="form-group">
-                                <label>Scenario *</label>
-                                <div style="display:flex; flex-direction:column; gap:6px; padding: 8px 0;">
-                                    <label style="font-weight:400; display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 12px; border:1px solid #e0e7ef; border-radius:8px;">
-                                        <input type="radio" name="rapidScenario" value="PLACE_AND_MARK" checked onchange="onRapidScenarioChange()">
-                                        <span><strong>1 · Place Order &amp; Sale Mark</strong><br>
-                                            <span style="font-size:12px; color:#64748b;">Place a new rapid order for the selected products, then mark the sale with automation.</span></span>
-                                    </label>
-                                    <label style="font-weight:400; display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 12px; border:1px solid #e0e7ef; border-radius:8px;">
-                                        <input type="radio" name="rapidScenario" value="ONLY_MARK" onchange="onRapidScenarioChange()">
-                                        <span><strong>2 · Only Sale Mark</strong><br>
-                                            <span style="font-size:12px; color:#64748b;">The order is already placed — fetch the latest order and only run the sale marking automation.</span></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div class="selected-summary" id="rapidCustomerSummary" style="display:none;">
-                                <div class="summary-item"><strong>Customer:</strong><span id="rapidSummaryCustomerName"></span></div>
-                                <div class="summary-item"><strong>Franchise:</strong><span id="rapidSummaryFranchise"></span></div>
-                                <div class="summary-item"><strong>Address:</strong><span id="rapidSummaryAddress"></span></div>
-                            </div>
-
-                            <h3>Addresses</h3>
-                            <div class="product-list" id="addressList"></div>
-
-                            <div class="wizard-actions">
-                                <button class="btn btn-secondary" onclick="backToSearchFromRapid()">Back</button>
-                                <button class="btn btn-primary" onclick="continueRapidFromScenario()">Continue</button>
                             </div>
                         </div>
                     </div>
@@ -388,6 +352,9 @@
                             </div>
 
                             <h3>Available Products</h3>
+                            <div class="form-group" style="margin:8px 0 12px;">
+                                <input type="text" id="productSearchInput" oninput="filterProductsByName()" placeholder="🔍 Search products by name or ID..." style="width:100%; max-width:420px; padding:9px 12px; border:1px solid #e0e7ef; border-radius:8px; font-size:13px;">
+                            </div>
                             <div class="product-list" id="productList"></div>
 
                             <div id="manualProductBlock" style="display:none; margin-top:16px; padding:14px; border:2px dashed #6366f1; border-radius:8px; background:#f8faff;">
@@ -453,6 +420,119 @@
                             <div class="wizard-actions" style="grid-template-columns: 1fr;">
                                 <button class="btn btn-secondary" onclick="backFromConfirm()" style="margin-bottom:4px;">← Back to Products</button>
                                 <button class="btn btn-primary" onclick="completeOrder()">Place Order &amp; Mark Sale</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ RAPID SALE MARKING ============ -->
+                <section class="feature-panel" data-feature="rapid-sale-marking">
+                    <div id="rCustomerSearch">
+                        <div class="card">
+                            <h2>Step 1 · Search Customer <span class="env-badge" style="background:#059669;">Rapid</span></h2>
+                            <div class="subtitle">Rapid delivery flow — place a rapid order or sale-mark an already-placed one via the rapid API.</div>
+                            <div class="form-group">
+                                <label>Mobile Number</label>
+                                <input type="text" id="rPhoneInput" placeholder="Enter customer phone number" maxlength="10">
+                            </div>
+                            <button class="btn btn-primary" onclick="searchRapidCustomer()">Search Customer</button>
+                            <div id="rCustomerResults" style="margin-top:16px; display:none;">
+                                <div class="product-list" id="rCustomerList"></div>
+                            </div>
+                            <div id="rNonRapidNotice" class="alert alert-warning" style="display:none; margin-top:12px;"></div>
+                        </div>
+                    </div>
+
+                    <div id="rRapidAddressSelection" style="display:none;">
+                        <div class="card">
+                            <h2>Step 2 · Rapid Scenario &amp; Address</h2>
+                            <div class="subtitle">Choose how to handle this rapid order, then select the delivery address.</div>
+
+                            <div class="form-group">
+                                <label>Scenario *</label>
+                                <div style="display:flex; flex-direction:column; gap:6px; padding: 8px 0;">
+                                    <label style="font-weight:400; display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 12px; border:1px solid #e0e7ef; border-radius:8px;">
+                                        <input type="radio" name="rRapidScenario" value="PLACE_AND_MARK" checked onchange="onRapidScenarioChange()">
+                                        <span><strong>1 · Place Order &amp; Sale Mark</strong><br>
+                                            <span style="font-size:12px; color:#64748b;">Place a new rapid order for the selected products, then mark the sale with automation.</span></span>
+                                    </label>
+                                    <label style="font-weight:400; display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 12px; border:1px solid #e0e7ef; border-radius:8px;">
+                                        <input type="radio" name="rRapidScenario" value="ONLY_MARK" onchange="onRapidScenarioChange()">
+                                        <span><strong>2 · Only Sale Mark</strong><br>
+                                            <span style="font-size:12px; color:#64748b;">The order is already placed — fetch the latest order and only run the sale marking automation.</span></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="selected-summary" id="rRapidCustomerSummary" style="display:none;">
+                                <div class="summary-item"><strong>Customer:</strong><span id="rRapidSummaryCustomerName"></span></div>
+                                <div class="summary-item"><strong>Franchise:</strong><span id="rRapidSummaryFranchise"></span></div>
+                                <div class="summary-item"><strong>Address:</strong><span id="rRapidSummaryAddress"></span></div>
+                            </div>
+
+                            <h3>Addresses</h3>
+                            <div class="product-list" id="rAddressList"></div>
+
+                            <div class="wizard-actions">
+                                <button class="btn btn-secondary" onclick="backRapidToSearch()">Back</button>
+                                <button class="btn btn-primary" onclick="continueRapidFromScenario()">Continue</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="rProductSelection" style="display:none;">
+                        <div class="card">
+                            <h2>Step 3 · Select Products</h2>
+
+                            <div class="selected-summary" id="rCustomerSummary" style="display:none;">
+                                <div class="summary-item"><strong>Customer:</strong><span id="rSummaryCustomerName"></span></div>
+                                <div class="summary-item"><strong>Franchise:</strong><span id="rSummaryFranchise"></span></div>
+                            </div>
+
+                            <h3>Available Products</h3>
+                            <div class="form-group" style="margin:8px 0 12px;">
+                                <input type="text" id="rProductSearchInput" oninput="filterRapidProductsByName()" placeholder="🔍 Search products by name or ID..." style="width:100%; max-width:420px; padding:9px 12px; border:1px solid #e0e7ef; border-radius:8px; font-size:13px;">
+                            </div>
+                            <div class="product-list" id="rProductList"></div>
+
+                            <div id="rManualProductBlock" style="display:none; margin-top:16px; padding:14px; border:2px dashed #6366f1; border-radius:8px; background:#f8faff;">
+                                <h3>No catalog products found — enter Product ID manually</h3>
+                                <div class="form-row" style="margin-top:8px;">
+                                    <label style="font-size:13px;">Product ID:</label>
+                                    <input type="number" id="rManualProductId" min="1" placeholder="e.g. 183">
+                                    <label style="font-size:13px;">Qty:</label>
+                                    <input type="number" id="rManualQty" min="1" value="1" style="width:70px;">
+                                    <label style="font-size:13px;">Type:</label>
+                                    <select id="rManualType" style="padding:8px; border:1px solid #e0e7ef; border-radius:6px;">
+                                        <option>one_time</option>
+                                        <option>daily</option>
+                                        <option>weekend</option>
+                                        <option>alternate</option>
+                                    </select>
+                                    <button class="btn btn-primary" onclick="addRapidManualProduct()">Add Product</button>
+                                </div>
+                                <div id="rManualSelected" style="margin-top:10px; font-size:13px;"></div>
+                            </div>
+
+                            <div class="wizard-actions">
+                                <button class="btn btn-secondary" onclick="backRapidToAddress()">Back</button>
+                                <button class="btn btn-primary" onclick="proceedRapidToOrder()">Proceed</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="rOrderCompletion" style="display:none;">
+                        <div class="card">
+                            <h2>Step 4 · Confirm &amp; Mark Sale <span class="env-badge" style="background:#059669;">Rapid</span></h2>
+
+                            <div class="selected-summary">
+                                <h3>Order Summary</h3>
+                                <div id="rOrderSummary"></div>
+                            </div>
+
+                            <div class="wizard-actions" style="grid-template-columns: 1fr;">
+                                <button class="btn btn-secondary" onclick="backRapidFromConfirm()" style="margin-bottom:4px;">← Back</button>
+                                <button class="btn btn-primary" onclick="completeRapidOrder()">Place Order &amp; Mark Sale</button>
                             </div>
                         </div>
                     </div>
@@ -559,6 +639,7 @@
         const FEATURES = [
             { id: 'dashboard',         label: 'Dashboard',         icon: '🏠', group: 'Main' },
             { id: 'sale-marking',      label: 'Sale Marking',      icon: '🎯', group: 'Main' },
+            { id: 'rapid-sale-marking', label: 'Rapid Sale Marking', icon: '⚡', group: 'Main' },
             { id: 'nd-reasons',        label: 'ND Reasons',        icon: '📋', group: 'Main' },
             { id: 'route-sheet',       label: 'Route Sheet',       icon: '🚚', group: 'Main' },
             { id: 'settings',          label: 'Settings',          icon: '⚙️', group: 'Main' },
@@ -569,6 +650,7 @@
            Register new features like: FEATURE_ON_ENTER['reports'] = () => loadReports(); */
         const FEATURE_ON_ENTER = {
             'sale-marking': () => { resetForm(); },
+            'rapid-sale-marking': () => { resetRapidForm(); },
             'nd-reasons':   () => loadNdReasonsPanel(),
             'route-sheet':  () => {},
             'settings':     () => loadSettingsPanel(),
@@ -684,6 +766,7 @@
         let selectedProducts = [];
         let ndReasonsLoaded = false;
         let customerResultsCache = [];
+        let productCache = [];
 
         async function searchCustomer() {
             const phone = document.getElementById('phoneInput').value.trim();
@@ -753,25 +836,121 @@
             });
         }
 
-        let selectedRapidAddressId = null;
-        let selectedRapidFranchiseId = null;
+        /* ================= RAPID SALE MARKING WIZARD (separate module) ================= */
+        let rapidSelectedCustomer = null;
+        let rapidSelectedProducts = [];
+        let rapidCustomerResultsCache = [];
+        let rapidProductCache = [];
+        let rapidSelectedAddressId = null;
+        let rapidSelectedFranchiseId = null;
         let rapidScenarioMode = 'PLACE_AND_MARK';
 
         function getRapidScenarioMode() {
-            const checked = document.querySelector('input[name="rapidScenario"]:checked');
+            const checked = document.querySelector('input[name="rRapidScenario"]:checked');
             return checked ? checked.value : rapidScenarioMode;
         }
 
         function onRapidScenarioChange() {
             rapidScenarioMode = getRapidScenarioMode();
-            if (rapidScenarioMode === 'ONLY_MARK') {
-                document.getElementById('rapidSummaryFranchise').textContent = selectedRapidFranchiseId || 'N/A';
+            const el = document.getElementById('rRapidSummaryFranchise');
+            if (el) el.textContent = rapidSelectedFranchiseId || 'N/A';
+        }
+
+        async function searchRapidCustomer() {
+            const phone = document.getElementById('rPhoneInput').value.trim();
+            if (!phone) { showAlert('Please enter a phone number', 'error'); return; }
+            showLoading('Searching rapid customer...');
+            try {
+                const response = await fetch(`/api/customer/search?phone=${phone}`);
+                const data = await response.json();
+                hideLoading();
+                if (data.success && data.data && data.data.length > 0) {
+                    displayRapidCustomers(data.data);
+                } else {
+                    showAlert('No customers found', 'warning');
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
             }
         }
 
+        function displayRapidCustomers(customers) {
+            rapidCustomerResultsCache = customers;
+            const customerList = document.getElementById('rCustomerList');
+            const notice = document.getElementById('rNonRapidNotice');
+            customerList.innerHTML = customers.map((c, idx) => {
+                const fullName = (c.FIRST_NAME || '') + (c.LAST_NAME ? ' ' + c.LAST_NAME : '');
+                const area = c.AREA || (c.attributes && c.attributes.length > 0 ? c.attributes[0].AREA : 'N/A');
+                const franchise = c.FRANCHISE || (c.attributes && c.attributes.length > 0 ? c.attributes[0].FRANCHISE : 'Not Set');
+                const rapidEligible = c.rapidEligible;
+                const rapidMessage = c.rapidEligibilityMessage || (rapidEligible ? 'Customer is rapid eligible' : 'Customer is not rapid eligible');
+                const rapidBadge = rapidEligible
+                    ? `<div class="product-meta" style="color:#059669; font-weight:600;">⚡ ${rapidMessage}</div>`
+                    : `<div class="product-meta" style="color:#dc2626;">${rapidMessage}</div>`;
+
+                const extra = rapidEligible
+                    ? ''
+                    : `<div class="product-meta" style="color:#b45309;">⚠️ Non-rapid customer — use the "Sale Marking" module instead.</div>`;
+
+                return `
+                    <div class="product-item" style="cursor:pointer;" data-cust-idx="${idx}" onclick="selectRapidCustomerByIndex(${idx})">
+                        <div class="product-info">
+                            <div class="product-name">${fullName || 'Unknown'}</div>
+                            <div class="product-meta">📱 Phone: ${c.PRIMARY_CONTACT_NUMBER}</div>
+                            <div class="product-meta">📍 Area: ${area} · 🏢 Franchise: ${franchise}</div>
+                            ${rapidBadge}
+                            ${extra}
+                        </div>
+                    </div>`;
+            }).join('');
+            const hasNonRapid = customers.some(c => !c.rapidEligible);
+            if (hasNonRapid && notice) {
+                notice.textContent = '⚠️ Some results are not rapid eligible — only ⚡ rapid customers can proceed here.';
+                notice.style.display = 'block';
+            } else if (notice) {
+                notice.style.display = 'none';
+            }
+            document.getElementById('rCustomerResults').style.display = 'block';
+        }
+
+        function selectRapidCustomerByIndex(idx) {
+            const c = rapidCustomerResultsCache[idx];
+            if (!c) { showAlert('Customer record not found. Please search again.', 'error'); return; }
+            const fullName = (c.FIRST_NAME || '') + (c.LAST_NAME ? ' ' + c.LAST_NAME : '');
+            const area = c.AREA || (c.attributes && c.attributes.length > 0 ? c.attributes[0].AREA : 'N/A');
+            const franchise = c.FRANCHISE || (c.attributes && c.attributes.length > 0 ? c.attributes[0].FRANCHISE : 'Not Set');
+            const city = c.CITY || (c.attributes && c.attributes.length > 0 ? c.attributes[0].CITY : 'N/A');
+            if (!c.rapidEligible) {
+                showAlert('This customer is NOT rapid eligible — please use the "Sale Marking" module instead.', 'error');
+                return;
+            }
+            rapidSelectedCustomer = {
+                id: c.ID,
+                customerId: c.CUSTOMER_ID || '',
+                name: fullName,
+                phone: c.PRIMARY_CONTACT_NUMBER || '',
+                email: c.EMAIL || '',
+                area: area,
+                franchise: franchise,
+                city: city,
+                attributes: c.attributes || [],
+                rapidEligible: true
+            };
+            document.getElementById('rCustomerSearch').style.display = 'none';
+            document.getElementById('rRapidAddressSelection').style.display = 'block';
+            loadRapidAddresses(String(c.ID));
+        }
+
+        function formatAddress(addr) {
+            if (!addr) return '';
+            const parts = [addr.address_line_1, addr.address_line_2, addr.address_line_3].filter(Boolean);
+            return parts.join(', ') || '';
+        }
+
         async function loadRapidAddresses(customerId) {
-            document.getElementById('rapidSummaryCustomerName').textContent = selectedCustomer.name;
-            document.getElementById('rapidCustomerSummary').style.display = 'block';
+            document.getElementById('rRapidSummaryCustomerName').textContent = rapidSelectedCustomer.name;
+            document.getElementById('rRapidCustomerSummary').style.display = 'block';
             showLoading('Loading rapid addresses...');
             try {
                 const response = await fetch(`/api/rapid-sale-marking/addresses/${encodeURIComponent(customerId)}`);
@@ -781,45 +960,32 @@
                     displayRapidAddresses(data.addresses);
                     const sel = data.selectedAddress || null;
                     if (sel) {
-                        selectedRapidAddressId = sel.id;
-                        selectedRapidFranchiseId = data.franchiseId;
-                        document.getElementById('rapidSummaryFranchise').textContent = data.franchiseId || 'N/A';
-                        document.getElementById('rapidSummaryAddress').textContent =
+                        rapidSelectedAddressId = sel.id;
+                        rapidSelectedFranchiseId = data.franchiseId;
+                        document.getElementById('rRapidSummaryFranchise').textContent = data.franchiseId || 'N/A';
+                        document.getElementById('rRapidSummaryAddress').textContent =
                             formatAddress(sel) || ('Address #' + sel.id);
-                        // Highlight the auto-selected (newest) address
-                        const firstRadio = document.querySelector('#addressList input[name="rapidAddress"][disabled]')
-                            || document.querySelector('#addressList input[name="rapidAddress"]');
-                        if (firstRadio) {
-                            firstRadio.checked = true;
-                            markAddressSelected(firstRadio.value);
-                        }
                     }
                     showAlert(`Newest address auto-selected · Franchise ${data.franchiseId || 'N/A'} cached`, 'success');
                 } else {
-                    document.getElementById('addressList').innerHTML =
+                    document.getElementById('rAddressList').innerHTML =
                         `<div class="alert alert-warning">${data.message || 'No addresses found'}</div>`;
-                    document.getElementById('rapidSummaryFranchise').textContent = 'N/A';
-                    document.getElementById('rapidSummaryAddress').textContent = 'No address';
+                    document.getElementById('rRapidSummaryFranchise').textContent = 'N/A';
+                    document.getElementById('rRapidSummaryAddress').textContent = 'No address';
                 }
             } catch (error) {
                 hideLoading();
-                document.getElementById('addressList').innerHTML =
+                document.getElementById('rAddressList').innerHTML =
                     `<div class="alert alert-error">Error loading addresses: ${error.message}</div>`;
-                document.getElementById('rapidSummaryFranchise').textContent = 'N/A';
+                document.getElementById('rRapidSummaryFranchise').textContent = 'N/A';
             }
         }
 
-        function formatAddress(addr) {
-            if (!addr) return '';
-            const parts = [addr.address_line_1, addr.address_line_2, addr.address_line_3].filter(Boolean);
-            return parts.join(', ') || '';
-        }
-
         function displayRapidAddresses(addresses) {
-            const container = document.getElementById('addressList');
+            const container = document.getElementById('rAddressList');
             container.innerHTML = addresses.map((a, idx) => `
-                <div class="product-item" id="addr-i-${a.id}">
-                    <input type="radio" name="rapidAddress" value="${a.id}"
+                <div class="product-item" id="raddr-i-${a.id}">
+                    <input type="radio" name="rRapidAddress" value="${a.id}"
                            data-franchise="${a.franchise != null ? a.franchise : (a.last_franchise != null ? a.last_franchise : (a.rapid_franchise != null ? a.rapid_franchise : ''))}"
                            ${idx === 0 ? 'checked' : ''}
                            onchange="onRapidAddressChange(this)">
@@ -831,21 +997,21 @@
                     ${idx === 0 ? '<span class="env-badge" style="background:#059669;">Auto-selected (newest)</span>' : ''}
                 </div>`).join('');
 
-            const first = document.querySelector('#addressList input[name="rapidAddress"]:checked');
+            const first = document.querySelector('#rAddressList input[name="rRapidAddress"]:checked');
             if (first) onRapidAddressChange(first);
         }
 
         function onRapidAddressChange(radio) {
-            selectedRapidAddressId = radio.value;
+            rapidSelectedAddressId = radio.value;
             const franchise = radio.getAttribute('data-franchise');
-            selectedRapidFranchiseId = franchise ? parseInt(franchise) : null;
-            document.getElementById('rapidSummaryFranchise').textContent = selectedRapidFranchiseId || 'N/A';
-            markAddressSelected(radio.value);
+            rapidSelectedFranchiseId = franchise ? parseInt(franchise) : null;
+            document.getElementById('rRapidSummaryFranchise').textContent = rapidSelectedFranchiseId || 'N/A';
+            markRapidAddressSelected(radio.value);
         }
 
-        function markAddressSelected(id) {
-            document.querySelectorAll('#addressList .product-item').forEach(el => el.classList.remove('selected'));
-            const target = document.getElementById('addr-i-' + id);
+        function markRapidAddressSelected(id) {
+            document.querySelectorAll('#rAddressList .product-item').forEach(el => el.classList.remove('selected'));
+            const target = document.getElementById('raddr-i-' + id);
             if (target) target.classList.add('selected');
         }
 
@@ -853,45 +1019,45 @@
             rapidScenarioMode = getRapidScenarioMode();
 
             if (rapidScenarioMode === 'ONLY_MARK') {
-                if (!selectedCustomer) { showAlert('Please select a customer first.', 'error'); return; }
-                document.getElementById('rapidAddressSelection').style.display = 'none';
-                document.getElementById('productSelection').style.display = 'none';
+                if (!rapidSelectedCustomer) { showAlert('Please select a customer first.', 'error'); return; }
+                document.getElementById('rRapidAddressSelection').style.display = 'none';
+                document.getElementById('rProductSelection').style.display = 'none';
                 await startOnlyMarkResultFlow();
                 return;
             }
 
-            if (!selectedRapidFranchiseId) { showAlert('Please select an address with a valid franchise first', 'error'); return; }
-            document.getElementById('rapidAddressSelection').style.display = 'none';
-            document.getElementById('productSelection').style.display = 'block';
-            document.getElementById('summaryCityId').textContent = 'Franchise: ' + selectedRapidFranchiseId;
-            fetchRapidProducts(selectedRapidFranchiseId);
+            if (!rapidSelectedFranchiseId) { showAlert('Please select an address with a valid franchise first', 'error'); return; }
+            document.getElementById('rRapidAddressSelection').style.display = 'none';
+            document.getElementById('rProductSelection').style.display = 'block';
+            document.getElementById('rSummaryCustomerName').textContent = rapidSelectedCustomer.name;
+            document.getElementById('rSummaryFranchise').textContent = 'Franchise: ' + rapidSelectedFranchiseId;
+            fetchRapidProducts(rapidSelectedFranchiseId);
         }
 
         async function startOnlyMarkResultFlow() {
             showLoading('Fetching latest rapid order...');
             try {
-                const response = await fetch(`/api/rapid-sale-marking/latest-order/${encodeURIComponent(selectedCustomer.id)}`);
+                const response = await fetch(`/api/rapid-sale-marking/latest-order/${encodeURIComponent(rapidSelectedCustomer.id)}`);
                 const data = await response.json();
                 hideLoading();
                 if (!data.success) {
                     showAlert(data.message || 'No already-placed order found — first place an order.', 'error');
-                    document.getElementById('rapidAddressSelection').style.display = 'block';
+                    document.getElementById('rRapidAddressSelection').style.display = 'block';
                     return;
                 }
                 const order = data.order || {};
-                const summary = document.getElementById('orderSummary');
+                const summary = document.getElementById('rOrderSummary');
                 summary.innerHTML = `
                     <div class="summary-item"><span>Order Number</span><span>${data.orderNumber || order.order_number || 'N/A'}</span></div>
                     <div class="summary-item"><span>Order ID</span><span>${data.orderId || order.id || 'N/A'}</span></div>
                     <div class="summary-item"><span>Franchise</span><span>${data.franchiseId || order.franchise || 'N/A'}</span></div>
                     <div class="summary-item"><span>Status</span><span>${data.orderStatus != null ? data.orderStatus : (order.status != null ? order.status : 'N/A')}</span></div>
                     <div class="summary-item"><span>Address</span><span>${order.address_string || ('Address #' + order.address) || 'N/A'}</span></div>`;
-                document.getElementById('orderCompletion').style.display = 'block';
-                setDefaultSaleDate();
+                document.getElementById('rOrderCompletion').style.display = 'block';
             } catch (error) {
                 hideLoading();
                 showAlert(`Error: ${error.message}`, 'error');
-                document.getElementById('rapidAddressSelection').style.display = 'block';
+                document.getElementById('rRapidAddressSelection').style.display = 'block';
             }
         }
 
@@ -903,10 +1069,10 @@
                 hideLoading();
                 if (data.success) {
                     if (data.data && data.data.length > 0) {
-                        displayProducts(data.data);
+                        displayRapidProducts(data.data);
                     } else {
-                        document.getElementById('productList').innerHTML = '';
-                        document.getElementById('manualProductBlock').style.display = 'block';
+                        document.getElementById('rProductList').innerHTML = '';
+                        document.getElementById('rManualProductBlock').style.display = 'block';
                         showAlert('No active products for franchise ' + franchiseId + ' — enter Product ID manually', 'warning');
                     }
                 } else {
@@ -918,11 +1084,234 @@
             }
         }
 
-        function backToSearchFromRapid() {
-            document.getElementById('rapidAddressSelection').style.display = 'none';
-            document.getElementById('productSelection').style.display = 'none';
-            document.getElementById('customerSearch').style.display = 'block';
-            document.getElementById('customerResults').style.display = 'block';
+        function displayRapidProducts(products) {
+            rapidProductCache = products;
+            const searchEl = document.getElementById('rProductSearchInput');
+            if (searchEl) searchEl.value = '';
+            renderRapidProducts(products);
+        }
+
+        function renderRapidProducts(products) {
+            const productList = document.getElementById('rProductList');
+            productList.innerHTML = products.map(p => `
+                <div class="product-item" id="rprod-${p.id}">
+                    <input type="checkbox" class="product-checkbox" onchange="toggleRapidProduct(this, ${p.id}, '${p.name}')">
+                    <div class="product-info">
+                        <div class="product-name">${p.name}</div>
+                        <div class="product-meta">${p.description || ''}</div>
+                    </div>
+                    <input type="number" min="1" value="1" class="quantity-input" id="rqty-${p.id}" onchange="syncRapidProductInput(${p.id})">
+                    <select class="order-type" id="rtype-${p.id}" onchange="syncRapidProductInput(${p.id})">
+                        <option>daily</option>
+                        <option>weekend</option>
+                        <option>alternate</option>
+                    </select>
+                </div>`).join('');
+        }
+
+        function filterRapidProductsByName() {
+            const term = (document.getElementById('rProductSearchInput').value || '').trim().toLowerCase();
+            const products = rapidProductCache.filter(p => {
+                if (!term) return true;
+                return (p.name || '').toLowerCase().includes(term) || String(p.id).includes(term);
+            });
+            if (products.length === 0) {
+                document.getElementById('rProductList').innerHTML =
+                    `<div class="alert alert-warning">No products match "${term}".</div>`;
+            } else {
+                renderRapidProducts(products);
+            }
+        }
+
+        function toggleRapidProduct(checkbox, productId, productName) {
+            if (checkbox.checked) {
+                const qty = parseInt(document.getElementById(`rqty-${productId}`).value);
+                const type = document.getElementById(`rtype-${productId}`).value;
+                rapidSelectedProducts.push({ id: productId, name: productName, quantity: qty, order_type: type });
+                document.getElementById(`rprod-${productId}`).classList.add('selected');
+            } else {
+                rapidSelectedProducts = rapidSelectedProducts.filter(p => p.id !== productId);
+                document.getElementById(`rprod-${productId}`).classList.remove('selected');
+            }
+        }
+
+        function syncRapidProductInput(productId) {
+            const product = rapidSelectedProducts.find(p => p.id === productId);
+            if (!product) return;
+            const qtyInput = document.getElementById(`rqty-${productId}`);
+            const typeSelect = document.getElementById(`rtype-${productId}`);
+            if (qtyInput) {
+                const qty = parseInt(qtyInput.value);
+                if (!isNaN(qty) && qty > 0) product.quantity = qty;
+            }
+            if (typeSelect) product.order_type = typeSelect.value;
+        }
+
+        function addRapidManualProduct() {
+            const pidInput = document.getElementById('rManualProductId').value;
+            const pid = parseInt(pidInput);
+            if (!pid || isNaN(pid)) { showAlert('Enter a valid Product ID', 'error'); return; }
+            const qty = parseInt(document.getElementById('rManualQty').value) || 1;
+            const type = document.getElementById('rManualType').value;
+            if (rapidSelectedProducts.some(p => p.id === pid)) { showAlert('Product ' + pid + ' already added', 'warning'); return; }
+            rapidSelectedProducts.push({ id: pid, name: 'Product ' + pid, quantity: qty, order_type: type });
+            renderRapidManualSelected();
+            document.getElementById('rManualProductId').value = '';
+            showAlert('Product ' + pid + ' added (qty ' + qty + ', ' + type + ')', 'success');
+        }
+
+        function removeRapidManualProduct(pid) {
+            rapidSelectedProducts = rapidSelectedProducts.filter(p => p.id !== pid);
+            renderRapidManualSelected();
+        }
+
+        function renderRapidManualSelected() {
+            const container = document.getElementById('rManualSelected');
+            container.innerHTML = rapidSelectedProducts.map(p => `
+                <div style="display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid #eee;">
+                    <span>${p.name} × ${p.quantity} (${p.order_type})</span>
+                    <span style="cursor:pointer; color:#b91c1c;" onclick="removeRapidManualProduct(${p.id})">✕ Remove</span>
+                </div>`).join('') || '<span style="color:#94a3b8;">No products added yet.</span>';
+        }
+
+        function proceedRapidToOrder() {
+            if (rapidSelectedProducts.length === 0) { showAlert('Please select at least one product', 'error'); return; }
+            rapidSelectedProducts.forEach(p => syncRapidProductInput(p.id));
+            const summary = document.getElementById('rOrderSummary');
+            summary.innerHTML = rapidSelectedProducts.map(p => `
+                <div class="summary-item">
+                    <span>${p.name}</span>
+                    <span>Qty: ${p.quantity} · ${p.order_type}</span>
+                </div>`).join('');
+            document.getElementById('rProductSelection').style.display = 'none';
+            document.getElementById('rOrderCompletion').style.display = 'block';
+        }
+
+        function backRapidToSearch() {
+            document.getElementById('rRapidAddressSelection').style.display = 'none';
+            document.getElementById('rProductSelection').style.display = 'none';
+            document.getElementById('rOrderCompletion').style.display = 'none';
+            document.getElementById('rCustomerSearch').style.display = 'block';
+            document.getElementById('rCustomerResults').style.display = 'block';
+        }
+
+        function backRapidToAddress() {
+            document.getElementById('rProductSelection').style.display = 'none';
+            document.getElementById('rManualProductBlock').style.display = 'none';
+            document.getElementById('rManualSelected').innerHTML = '';
+            document.getElementById('rCustomerSummary').style.display = 'none';
+            rapidSelectedProducts = [];
+            rapidProductCache = [];
+            const rSearch = document.getElementById('rProductSearchInput');
+            if (rSearch) rSearch.value = '';
+            document.getElementById('rRapidAddressSelection').style.display = 'block';
+        }
+
+        function backRapidFromConfirm() {
+            document.getElementById('rOrderCompletion').style.display = 'none';
+            if (getRapidScenarioMode() === 'ONLY_MARK') {
+                document.getElementById('rRapidAddressSelection').style.display = 'block';
+            } else {
+                document.getElementById('rProductSelection').style.display = 'block';
+            }
+        }
+
+        async function completeRapidOrder() {
+            rapidScenarioMode = getRapidScenarioMode();
+
+            if (rapidScenarioMode === 'ONLY_MARK') {
+                if (!rapidSelectedCustomer) { showAlert('Please select a customer first.', 'error'); return; }
+                openProcessLog();
+                try {
+                    const payload = {
+                        customerId: String(rapidSelectedCustomer.id),
+                        mode: 'ONLY_MARK'
+                    };
+                    appendProcessLog('step', 'Only Sale Mark — fetching latest already-placed order');
+                    const response = await fetch('/api/rapid-sale-marking/order', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || !data.success) {
+                        throw new Error((data.message || 'HTTP ' + response.status));
+                    }
+                    appendProcessLog('success', '✅ ' + (data.message || 'Latest order fetched'));
+                    appendProcessLog('log', 'Order: ' + (data.orderNumber || '') + ' (id ' + (data.orderId || '') + ', franchise ' + (data.franchiseId || '') + ')');
+                    appendProcessLog('log', 'Order data: ' + JSON.stringify(data.order || {}));
+                    setProcessStatus('DONE');
+                    showAlert('✅ ' + (data.message || 'Latest order fetched for sale marking!'), 'success');
+                    resetRapidForm();
+                } catch (error) {
+                    setProcessStatus('FAILED');
+                    appendProcessLog('error', '❌ ' + error.message);
+                    showAlert(`Error: ${error.message}`, 'error');
+                }
+                return;
+            }
+
+            if (rapidSelectedProducts.length === 0) { showAlert('Please select at least one product.', 'error'); return; }
+            if (!rapidSelectedFranchiseId) { showAlert('No franchise resolved. Go back and select an address.', 'error'); return; }
+
+            openProcessLog();
+            try {
+                const products = rapidSelectedProducts.map(p => ({ id: p.id, quantity: p.quantity || 1 }));
+                const payload = {
+                    customerId: String(rapidSelectedCustomer.id),
+                    franchiseId: rapidSelectedFranchiseId,
+                    selectedAddressId: rapidSelectedAddressId ? parseInt(rapidSelectedAddressId) : null,
+                    products: products,
+                    mode: 'PLACE_AND_MARK'
+                };
+
+                appendProcessLog('step', 'Step-3/4 — Placing rapid order via /api/order');
+                const response = await fetch('/api/rapid-sale-marking/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok || !data.success) {
+                    throw new Error((data.message || 'HTTP ' + response.status));
+                }
+
+                appendProcessLog('success', '✅ Rapid order placed: ' + (data.message || ''));
+                const resp = data.response || '';
+                appendProcessLog('log', 'Order response: ' + resp);
+                setProcessStatus('DONE');
+                showAlert('✅ ' + (data.message || 'Rapid order placed successfully!'), 'success');
+                resetRapidForm();
+            } catch (error) {
+                setProcessStatus('FAILED');
+                appendProcessLog('error', '❌ ' + error.message);
+                showAlert(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function resetRapidForm() {
+            document.getElementById('rPhoneInput').value = '';
+            document.getElementById('rCustomerResults').style.display = 'none';
+            document.getElementById('rCustomerList').innerHTML = '';
+            const notice = document.getElementById('rNonRapidNotice');
+            if (notice) notice.style.display = 'none';
+            document.getElementById('rRapidAddressSelection').style.display = 'none';
+            document.getElementById('rProductSelection').style.display = 'none';
+            document.getElementById('rOrderCompletion').style.display = 'none';
+            document.getElementById('rManualProductBlock').style.display = 'none';
+            document.getElementById('rManualSelected').innerHTML = '';
+            document.getElementById('rCustomerSearch').style.display = 'block';
+            rapidSelectedCustomer = null;
+            rapidSelectedProducts = [];
+            rapidCustomerResultsCache = [];
+            rapidProductCache = [];
+            const rSearch = document.getElementById('rProductSearchInput');
+            if (rSearch) rSearch.value = '';
+            rapidSelectedAddressId = null;
+            rapidSelectedFranchiseId = null;
+            rapidScenarioMode = 'PLACE_AND_MARK';
+            const scenarioRadios = document.querySelectorAll('input[name="rRapidScenario"]');
+            scenarioRadios.forEach(r => r.checked = (r.value === 'PLACE_AND_MARK'));
         }
 
         function selectCustomer(customer) {
@@ -932,14 +1321,12 @@
             document.getElementById('customerSummary').style.display = 'block';
 
             if (customer.rapidEligible) {
-                document.getElementById('customerSearch').style.display = 'none';
-                document.getElementById('rapidAddressSelection').style.display = 'block';
-                loadRapidAddresses(String(customer.id));
-            } else {
-                document.getElementById('customerSearch').style.display = 'none';
-                document.getElementById('productSelection').style.display = 'block';
-                fetchProducts();
+                showAlert('⚡ ' + (customer.name || 'This customer') + ' is rapid eligible — please use the "Rapid Sale Marking" module in the sidebar.', 'warning');
+                return;
             }
+            document.getElementById('customerSearch').style.display = 'none';
+            document.getElementById('productSelection').style.display = 'block';
+            fetchProducts();
         }
 
         async function fetchProducts() {
@@ -996,6 +1383,13 @@
         }
 
         function displayProducts(products) {
+            productCache = products;
+            const searchEl = document.getElementById('productSearchInput');
+            if (searchEl) searchEl.value = '';
+            renderProducts(products);
+        }
+
+        function renderProducts(products) {
             const productList = document.getElementById('productList');
             productList.innerHTML = products.map(p => `
                 <div class="product-item" id="prod-${p.id}">
@@ -1011,6 +1405,20 @@
                         <option>alternate</option>
                     </select>
                 </div>`).join('');
+        }
+
+        function filterProductsByName() {
+            const term = (document.getElementById('productSearchInput').value || '').trim().toLowerCase();
+            const products = productCache.filter(p => {
+                if (!term) return true;
+                return (p.name || '').toLowerCase().includes(term) || String(p.id).includes(term);
+            });
+            if (products.length === 0) {
+                document.getElementById('productList').innerHTML =
+                    `<div class="alert alert-warning">No products match "${term}".</div>`;
+            } else {
+                renderProducts(products);
+            }
         }
 
         function toggleProduct(checkbox, productId, productName) {
@@ -1053,11 +1461,7 @@
 
         function backFromConfirm() {
             document.getElementById('orderCompletion').style.display = 'none';
-            if (getRapidScenarioMode() === 'ONLY_MARK') {
-                document.getElementById('rapidAddressSelection').style.display = 'block';
-            } else {
-                document.getElementById('productSelection').style.display = 'block';
-            }
+            document.getElementById('productSelection').style.display = 'block';
         }
 
         async function completeOrder() {
@@ -1071,12 +1475,7 @@
                 ndReasonId = parseInt(ndReasonId);
             }
 
-            // Rapid customers place the order through the rapid API instead
-            if (selectedCustomer && selectedCustomer.rapidEligible) {
-                await completeRapidOrder();
-                return;
-            }
-
+            // Regular (non-rapid) flow places the order through the streaming endpoint
             openProcessLog();
             try {
                 const saleDateEl = document.getElementById('saleDateInput');
@@ -1143,80 +1542,6 @@
             }
         }
 
-        async function completeRapidOrder() {
-            rapidScenarioMode = getRapidScenarioMode();
-
-            if (rapidScenarioMode === 'ONLY_MARK') {
-                if (!selectedCustomer) { showAlert('Please select a customer first.', 'error'); return; }
-                openProcessLog();
-                try {
-                    const payload = {
-                        customerId: String(selectedCustomer.id),
-                        mode: 'ONLY_MARK'
-                    };
-                    appendProcessLog('step', 'Only Sale Mark — fetching latest already-placed order');
-                    const response = await fetch('/api/rapid-sale-marking/order', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    const data = await response.json().catch(() => ({}));
-                    if (!response.ok || !data.success) {
-                        throw new Error((data.message || 'HTTP ' + response.status));
-                    }
-                    appendProcessLog('success', '✅ ' + (data.message || 'Latest order fetched'));
-                    appendProcessLog('log', 'Order: ' + (data.orderNumber || '') + ' (id ' + (data.orderId || '') + ', franchise ' + (data.franchiseId || '') + ')');
-                    appendProcessLog('log', 'Order data: ' + JSON.stringify(data.order || {}));
-                    setProcessStatus('DONE');
-                    showAlert('✅ ' + (data.message || 'Latest order fetched for sale marking!'), 'success');
-                    resetForm();
-                } catch (error) {
-                    setProcessStatus('FAILED');
-                    appendProcessLog('error', '❌ ' + error.message);
-                    showAlert(`Error: ${error.message}`, 'error');
-                }
-                return;
-            }
-
-            if (selectedProducts.length === 0) { showAlert('Please select at least one product.', 'error'); return; }
-            if (!selectedRapidFranchiseId) { showAlert('No franchise resolved. Go back and select an address.', 'error'); return; }
-
-            openProcessLog();
-            try {
-                const products = selectedProducts.map(p => ({ id: p.id, quantity: p.quantity || 1 }));
-                const payload = {
-                    customerId: String(selectedCustomer.id),
-                    franchiseId: selectedRapidFranchiseId,
-                    selectedAddressId: selectedRapidAddressId ? parseInt(selectedRapidAddressId) : null,
-                    products: products,
-                    mode: 'PLACE_AND_MARK'
-                };
-
-                appendProcessLog('step', 'Step-4 — Placing rapid order via /api/order');
-                const response = await fetch('/api/rapid-sale-marking/order', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const data = await response.json().catch(() => ({}));
-                if (!response.ok || !data.success) {
-                    throw new Error((data.message || 'HTTP ' + response.status));
-                }
-
-                appendProcessLog('success', '✅ Rapid order placed: ' + (data.message || ''));
-                const resp = data.response || '';
-                appendProcessLog('log', 'Order response: ' + resp);
-                setProcessStatus('DONE');
-                showAlert('✅ ' + (data.message || 'Rapid order placed successfully!'), 'success');
-                resetForm();
-            } catch (error) {
-                setProcessStatus('FAILED');
-                appendProcessLog('error', '❌ ' + error.message);
-                showAlert(`Error: ${error.message}`, 'error');
-            }
-        }
-
-        /* ================= Live Process Log ================= */
         function openProcessLog() {
             const modal = document.getElementById('processLogModal');
             document.getElementById('processLogBody').innerHTML = '';
@@ -1362,11 +1687,10 @@
             document.getElementById('manualProductBlock').style.display = 'none';
             document.getElementById('manualSelected').innerHTML = '';
             selectedProducts = [];
-            if (selectedCustomer && selectedCustomer.rapidEligible) {
-                document.getElementById('rapidAddressSelection').style.display = 'block';
-            } else {
-                document.getElementById('customerSearch').style.display = 'block';
-            }
+            productCache = [];
+            const pSearch = document.getElementById('productSearchInput');
+            if (pSearch) pSearch.value = '';
+            document.getElementById('customerSearch').style.display = 'block';
         }
 
         function resetForm() {
@@ -1374,7 +1698,6 @@
             document.getElementById('customerResults').style.display = 'none';
             document.getElementById('orderCompletion').style.display = 'none';
             document.getElementById('productSelection').style.display = 'none';
-            document.getElementById('rapidAddressSelection').style.display = 'none';
             document.getElementById('manualProductBlock').style.display = 'none';
             document.getElementById('manualSelected').innerHTML = '';
             document.getElementById('customerSearch').style.display = 'block';
@@ -1386,11 +1709,10 @@
             selectedProducts = [];
             ndReasonsLoaded = false;
             customerResultsCache = [];
-            selectedRapidAddressId = null;
-            selectedRapidFranchiseId = null;
-            rapidScenarioMode = 'PLACE_AND_MARK';
-            const scenarioRadios = document.querySelectorAll('input[name="rapidScenario"]');
-            scenarioRadios.forEach(r => r.checked = (r.value === 'PLACE_AND_MARK'));
+            productCache = [];
+            const pSearch = document.getElementById('productSearchInput');
+            if (pSearch) pSearch.value = '';
+            document.getElementById('customerList').innerHTML = '';
         }
 
         /* ================= ND REASONS FEATURE ================= */
@@ -1489,8 +1811,8 @@
                             <tr><td><strong>CMS API Base URL</strong></td><td>${isUat ? 'https://uat-cms.countrydelight.in' : 'https://qa-cms.countrydelight.in'}</td></tr>
                             <tr><td><strong>Admin URL</strong></td><td>${isUat ? 'https://uat-crm.countrydelight.in/admin/' : 'https://qa-crm.countrydelight.in/admin/'}</td></tr>
                             <tr><td><strong>Database</strong></td><td>beejapuri_${(data.env || 'QA').toUpperCase()}</td></tr>
-                            <tr><td><strong>Host</strong></td><td>non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306</td></tr>
-                            <tr><td><strong>Sale Workflow</strong></td><td>POST /api/order/place-and-mark (auto place → route sheet → mark sale)</td></tr>
+<!--                            <tr><td><strong>Host</strong></td><td>non-prod-apps-dbs.cxmdwl4djaa6.ap-south-1.rds.amazonaws.com:3306</td></tr>-->
+<!--                            <tr><td><strong>Sale Workflow</strong></td><td>POST /api/order/place-and-mark (auto place → route sheet → mark sale)</td></tr>-->
                         </tbody>
                     </table>`;
             } catch (error) {

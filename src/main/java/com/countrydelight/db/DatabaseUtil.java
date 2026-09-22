@@ -205,13 +205,19 @@ private Connection getConnection() throws SQLException {
     }
 
     /**
-     * Fetches the latest customer token (refresh_token) from the customer_token
-     * table in the regular beejapuri database for the given customer DB id.
+     * Fetches the latest refresh token for the given customer DB id.
+     * The refresh token lives in the auth_token table (current mechanism);
+     * customer_token is kept as a fallback for legacy rows.
      *
-     * @param customerId the customer DB id (e.g. 9935686)
+     * @param customerId the customer DB id (e.g. 9938341)
      * @return the TOKEN string (refresh token), or null if not found
      */
     public String getCustomerToken(String customerId) throws Exception {
+        String authToken = getCustomerAuthToken(customerId);
+        if (authToken != null && !authToken.trim().isEmpty()) {
+            return authToken;
+        }
+        // Fallback to legacy customer_token rows
         String query = "SELECT * FROM customer_token ct WHERE ct.CUSTOMER = ? ORDER BY ct.id DESC LIMIT 1";
         try (Connection con = getConnection();
              PreparedStatement ps = con.prepareStatement(query)) {
@@ -219,14 +225,38 @@ private Connection getConnection() throws SQLException {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     String token = rs.getString("TOKEN");
-                    System.out.println("✓ Latest customer token found for customer " + customerId);
+                    System.out.println("⚠ Using legacy customer_token row for customer " + customerId);
                     return token;
                 }
             }
         } catch (SQLException e) {
             throw new RuntimeException("CRITICAL: Failed to fetch customer token for " + customerId + ": " + e.getMessage(), e);
         }
-        System.out.println("⚠ No customer_token found for customer " + customerId);
+        System.out.println("⚠ No auth_token found for customer " + customerId);
+        return null;
+    }
+
+    /**
+     * Fetches the latest refresh token from the auth_token table for a customer.
+     *
+     * @param customerId the customer DB id
+     * @return the AUTH_TOKEN string, or null if not found
+     */
+    private String getCustomerAuthToken(String customerId) throws Exception {
+        String query = "SELECT * FROM auth_token at WHERE at.CUSTOMER = ? ORDER BY at.id DESC LIMIT 1";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String token = rs.getString("AUTH_TOKEN");
+                    System.out.println("✓ Latest auth_token found for customer " + customerId);
+                    return token;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to fetch auth_token for " + customerId + ": " + e.getMessage(), e);
+        }
         return null;
     }
 
