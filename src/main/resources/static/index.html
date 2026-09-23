@@ -2234,10 +2234,28 @@
             }
         }
 
+        /* Hidden-row state (survives re-fetch + refresh via sessionStorage).
+           Key = `${database}|${rowId}`. */
+        let fcHiddenRows = new Set(JSON.parse(sessionStorage.getItem('fcHiddenRows') || '[]'));
+
+        function persistFcHiddenRows() {
+            sessionStorage.setItem('fcHiddenRows', JSON.stringify([...fcHiddenRows]));
+        }
+
+        function toggleFeatureConfigRowHidden(database, rowId) {
+            const key = database + '|' + rowId;
+            if (fcHiddenRows.has(key)) fcHiddenRows.delete(key); else fcHiddenRows.add(key);
+            persistFcHiddenRows();
+            renderFeatureConfigResult(fcLastResult || []);
+        }
+        let fcLastResult = null;
+
         function renderFeatureConfigResult(dbResults) {
             const result = document.getElementById('fcResult');
             if (!result) return;
+            fcLastResult = dbResults;
             if (!dbResults || dbResults.length === 0) { result.innerHTML = '<div class="alert alert-info">No rows found.</div>'; return; }
+
 
             let html = '';
             for (const db of dbResults) {
