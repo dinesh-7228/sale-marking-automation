@@ -566,6 +566,54 @@
                     </div>
                 </section>
 
+                <!-- ============ PAYMENT ============ -->
+                <section class="feature-panel" data-feature="payment">
+                    <div class="card">
+                        <h2>💳 Payment</h2>
+                        <div class="subtitle">Recharge once, or set up AutoPay from <code class="api-path">autopay_config</code> (filter: smart_plan yes/no).</div>
+
+                        <div class="form-group">
+                            <label>Mobile Number *</label>
+                            <input type="text" id="payPhoneInput" maxlength="10" placeholder="Enter 10-digit mobile number">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Payment Action</label>
+                            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                    <input type="radio" name="payAction" value="RECHARGE_ONCE" checked onchange="onPayActionChange()"> Recharge Once
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                    <input type="radio" name="payAction" value="AUTOPAY" onchange="onPayActionChange()"> AutoPay Setup
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- AutoPay-only: config picker populated from autopay_config (smart_plan filter) -->
+                        <div id="payAutopayBlock" style="display:none;">
+                            <div class="form-group">
+                                <label>Smart Plan Filter</label>
+                                <select id="paySmartPlanFilter" onchange="loadAutopayConfigOptions()">
+                                    <option value="">All</option>
+                                    <option value="yes">Yes</option>
+                                    <option value="no">No</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Available AutoPay Configs</label>
+                                <div id="payAutopayList" style="max-height:260px; overflow-y:auto; border:1px solid #e0e7ef; border-radius:8px; padding:6px;"></div>
+                            </div>
+                            <div style="font-size:11px; color:#94a3b8;" id="payAutopayHint">SELECT id, plan_name, smart_plan, amount FROM autopay_config WHERE smart_plan IN (filter)</div>
+                        </div>
+
+                        <div style="margin-top:10px;">
+                            <button class="btn btn-primary" onclick="submitPayment()">Submit</button>
+                            <button class="btn btn-secondary" onclick="resetPaymentForm()" style="margin-left:8px;">Reset</button>
+                        </div>
+                        <div id="payResult" style="margin-top:14px;"></div>
+                    </div>
+                </section>
+
                 <!-- ============ SETTINGS ============ -->
                 <section class="feature-panel" data-feature="settings">
                     <div class="card">
@@ -698,7 +746,8 @@
             { id: 'settings',          label: 'Settings',          icon: '⚙️', group: 'Main' },
             { id: 'complaint-cleanup', label: 'Complaint Clean Up', icon: '🧹', group: 'Complaints' },
             { id: 'api-comparator',    label: 'API Comparator',    icon: '🔍', group: 'Comparator' },
-            { id: 'feature-config',    label: 'Feature Config',    icon: '🧩', group: 'Complaints' }
+            { id: 'feature-config',    label: 'Feature Config',    icon: '🧩', group: 'Complaints' },
+            { id: 'payment',           label: 'Payment',           icon: '💳', group: 'Complaints' }
         ];
 
         /* On-enter lifecycle hooks — run every time a feature becomes active.
@@ -717,7 +766,8 @@
             'route-sheet':  () => {},
             'settings':     () => loadSettingsPanel(),
             'complaint-cleanup': () => renderComplaintDbList(),
-            'feature-config':   () => renderFeatureConfigDbList()
+            'feature-config':   () => renderFeatureConfigDbList(),
+            'payment':          () => renderPaymentPanel()
         };
 
         function renderSidebar() {
@@ -765,6 +815,78 @@
             if (FEATURE_ON_ENTER[featureId]) {
                 try { FEATURE_ON_ENTER[featureId](); } catch (e) { console.error(e); }
             }
+        }
+
+        /* ================= PAYMENT (architecture only — API endpoints pending) ================= */
+        const PAY_API = '/api/payment';   // ← TBD: prefix confirmed when backend API is provided
+
+        let paySelectedConfig = null;
+
+        async function renderPaymentPanel() {
+            resetPaymentForm();
+            loadAutopayConfigOptions();
+        }
+
+        function onPayActionChange() {
+            const block = document.getElementById('payAutopayBlock');
+            const action = document.querySelector('input[name="payAction"]:checked').value;
+            block.style.display = action === 'AUTOPAY' ? 'block' : 'none';
+            if (action === 'AUTOPAY') loadAutopayConfigOptions();
+        }
+
+        /* Mirror of autopay_config select filtered by smart_plan. Wired to a placeholder
+           that is replaced by the real API path once shared (e.g. GET /api/payment/autopay-configs). */
+        async function loadAutopayConfigOptions() {
+            const list = document.getElementById('payAutopayList');
+            if (!list) return;
+            const smartPlan = document.getElementById('paySmartPlanFilter').value;
+            list.innerHTML = '<div style="padding:10px; font-size:12px; color:#94a3b8;">Loading autopay_config…</div>';
+            try {
+                const qs = smartPlan ? ('?smart_plan=' + encodeURIComponent(smartPlan)) : '';
+                const resp = await fetch(PAY_API + '/autopay-configs' + qs);
+                const data = await resp.json();
+                if (!data.success) { list.innerHTML = `<div style="padding:10px; font-size:12px; color:#b91c1c;">${data.message || 'Failed to load'}</div>`; return; }
+                renderAutopayConfigOptions(data.data || []);
+            } catch (e) {
+                list.innerHTML = `<div style="padding:10px; font-size:12px; color:#b91c1c;">Endpoint not wired yet (${PAY_API}/autopay-configs). Share the API and extend \`loadAutopayConfigOptions\`.</div>`;
+            }
+        }
+
+        function renderAutopayConfigOptions(configs) {
+            const list = document.getElementById('payAutopayList');
+            list.innerHTML = '';
+            if (!configs.length) { list.innerHTML = '<div style="padding:10px; font-size:12px; color:#94a3b8;">No autopay configs for this smart_plan filter.</div>'; return; }
+            for (const c of configs) {
+                list.insertAdjacentHTML('beforeend', `<label style="display:flex; align-items:center; gap:8px; padding:8px; border:1px solid #e0e7ef; border-radius:6px; margin:4px 0; cursor:pointer; background:#f8fafc;">
+                    <input type="radio" name="payAutopayConfig" value="${c.id}" onchange="selectAutopayConfig(${c.id})">
+                    <span style="font-size:13px;"><strong>#${c.id}</strong> &middot; ${c.plan_name || 'plan'} &middot; smart_plan=<code>${c.smart_plan}</code> &middot; ₹${c.amount}</span>
+                </label>`);
+            }
+        }
+
+        function selectAutopayConfig(id) { paySelectedConfig = id; }
+
+        function resetPaymentForm() {
+            document.getElementById('payPhoneInput').value = '';
+            document.getElementById('paySmartPlanFilter').value = '';
+            paySelectedConfig = null;
+            const block = document.getElementById('payAutopayBlock');
+            if (block) block.style.display = 'none';
+            const act = document.querySelector('input[name="payAction"][value="RECHARGE_ONCE"]');
+            if (act) act.checked = true;
+            const result = document.getElementById('payResult');
+            if (result) result.innerHTML = '';
+        }
+
+        /* placeholder submit — real wiring replaces `payResult` render once API provided */
+        async function submitPayment() {
+            const phone = document.getElementById('payPhoneInput').value.trim();
+            const result = document.getElementById('payResult');
+            if (!/^[0-9]{10}$/.test(phone)) { result.innerHTML = '<div class="alert alert-error">Enter a valid 10-digit mobile number.</div>'; return; }
+            const action = document.querySelector('input[name="payAction"]:checked').value;
+            if (action === 'AUTOPAY' && !paySelectedConfig) { result.innerHTML = '<div class="alert alert-error">Select an AutoPay config.</div>'; return; }
+            result.innerHTML = `<div class="alert alert-info">Ready: phone=<code>${phone}</code> action=<code>${action}</code>${action==='AUTOPAY' ? ` config=<code>#${paySelectedConfig}</code>` : ''}<br>
+                <span style="font-size:12px;">POST ${PAY_API}${action==='AUTOPAY'?'/autopay/setup':'/recharge'} — endpoint pending; wire after API shared.</span></div>`;
         }
 
         /* ================= Alerts & loading ================= */
@@ -2266,35 +2388,43 @@
                     </div>`;
 
                 for (const row of (db.rows || [])) {
-                    html += `<div class="card" style="margin:10px 0; padding:12px; background:#f8fafc;">
+                    const hiddenKey = db.database + '|' + row.id;
+                    const isHidden = fcHiddenRows.has(hiddenKey);
+                    html += `<div class="card" style="margin:10px 0; padding:12px; background:${isHidden?'#f1f5f9':'#f8fafc'};${isHidden?'opacity:.75':''}">
                         <div style="font-weight:600; margin-bottom:8px;">Row #${row.id} (TYPE ${row.type}, ENABLED ${row.enabled})
-                            <button class="btn btn-primary btn-sm" style="float:right;" onclick="viewFeatureConfigRowDetail('${db.database}', ${JSON.stringify(row).replace(/"/g,'&quot;')})">View details</button>
+                            ${isHidden ? `<span style="color:#94a3b8; font-size:12px;">&mdash; hidden</span>` : ''}
+                            <span style="float:right;">
+                            <button class="btn ${isHidden?'btn-secondary':'btn-outline-dark'} btn-sm" onclick="toggleFeatureConfigRowHidden('${db.database}',${row.id})">${isHidden?'Show':'Hide'}</button>
+                            <button class="btn btn-primary btn-sm" onclick="viewFeatureConfigRowDetail('${db.database}', ${JSON.stringify(row).replace(/"/g,'&quot;')})">View details</button>
+                            </span>
                         </div>
-                        <table class="apitable" style="width:100%;">
+                        <table class="apitable" style="width:100%; display:${isHidden?'none':''};">
                             <thead><tr><th>Rule #</th><th>Key</th><th>Value</th><th></th></tr></thead>
-                            <tbody>`;
+                            <tbody>
 
-                    const rules = row.eligibility || [];
-                    if (rules.length === 0) {
-                        html += `<tr><td colspan="4" style="color:#667;">No ELIGIBILITY rules</td></tr>`;
+                    if (!isHidden) {
+                        const rules = row.eligibility || [];
+                        if (rules.length === 0) {
+                            html += `<tr><td colspan="4" style="color:#667;">No ELIGIBILITY rules</td></tr>`;
+                        }
+                        rules.forEach((rule, ri) => {
+                            const keys = [];
+                            for (const k of Object.keys(rule || {})) {
+                                keys.push({ key: k, value: JSON.stringify(rule[k]) });
+                            }
+                            if (keys.length === 0) { html += `<tr><td class="rule-idx">[${ri}]</td><td colspan="3" style="color:#667;">Empty rule</td></tr>`; return; }
+                            for (const {key, value} of keys) {
+                                html += `<tr>
+                                    <td class="rule-idx">[${ri}]</td>
+                                    <td><code>${key}</code></td>
+                                    <td><input class="fc-rule-value" data-fc-value="${key}" value="${escapeHtml(value)}" style="width:100%;"></td>
+                                    <td><button class="btn btn-primary btn-sm" onclick="updateFeatureConfigKey('${db.database}',${row.id},'ELIGIBILITY',${ri},'${key}',this)">Save</button></td>
+                                </tr>`;
+                            }
+                        });
+
+                        html += `</tbody></table>`;
                     }
-                    rules.forEach((rule, ri) => {
-                        const keys = [];
-                        for (const k of Object.keys(rule || {})) {
-                            keys.push({ key: k, value: JSON.stringify(rule[k]) });
-                        }
-                        if (keys.length === 0) { html += `<tr><td class="rule-idx">[${ri}]</td><td colspan="3" style="color:#667;">Empty rule</td></tr>`; return; }
-                        for (const {key, value} of keys) {
-                            html += `<tr>
-                                <td class="rule-idx">[${ri}]</td>
-                                <td><code>${key}</code></td>
-                                <td><input class="fc-rule-value" data-fc-value="${key}" value="${escapeHtml(value)}" style="width:100%;"></td>
-                                <td><button class="btn btn-primary btn-sm" onclick="updateFeatureConfigKey('${db.database}',${row.id},'ELIGIBILITY',${ri},'${key}',this)">Save</button></td>
-                            </tr>`;
-                        }
-                    });
-
-                    html += `</tbody></table>`;
                     if (row.formData && Object.keys(row.formData).length) {
                         html += `<div class="subtitle" style="margin-top:8px;">FORM_DATA</div><table class="apitable" style="width:100%;"><tbody>`;
                         for (const k of Object.keys(row.formData)) {
