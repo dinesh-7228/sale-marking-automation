@@ -10,6 +10,7 @@ com/countrydelight/controller/SaleMarkingController.class
 com/countrydelight/config/EnvironmentConfig$QaConfig.class
 com/countrydelight/api/ApiClient.class
 com/countrydelight/db/DatabaseUtil.class
+com/countrydelight/controller/FeatureConfigController.class
 com/countrydelight/service/CustomerSearchService.class
 com/countrydelight/api/MockApiClient.class
 com/countrydelight/controller/ComplaintController.class
@@ -24,3 +25,4 @@ com/countrydelight/SaleMarkingApplication.class
 com/countrydelight/model/OrderRequest.class
 com/countrydelight/service/ComplaintService.class
 com/countrydelight/config/EnvironmentConfig$UatConfig.class
+com/countrydelight/service/FeatureConfigService.class

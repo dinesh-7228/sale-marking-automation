@@ -110,6 +110,7 @@ public class RapidSaleMarkingService {
             selectedAddress.put("franchise", franchiseId);
             // Keep the returned list consistent with the update
             for (Map<String, Object> addr : addresses) {
+
                 if (addr.get("id") instanceof Number && ((Number) addr.get("id")).intValue() == addressId
                         || (addr.get("id") != null && addr.get("id").toString().equals(String.valueOf(addressId)))) {
                     addr.put("franchise", franchiseId);

@@ -1,0 +1,26 @@
+app = "sale-marking-automation"
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "1gb"
+
+[http_service]
+  internal_port = 6161
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = false
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.checks]
+    [http_service.checks.status]
+      interval = "20s"
+      timeout = "5s"
+      grace_period = "30s"
+      method = "get"
+      path = "/api/feature-config/databases"

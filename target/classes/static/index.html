@@ -601,11 +601,53 @@
                         </div>
 
                         <div class="form-row">
+                            <button class="btn btn-secondary" onclick="fetchComplaints()">Fetch Complaints</button>
                             <button class="btn btn-primary" onclick="runComplaintCleanup()">Run Cleanup</button>
                             <button class="btn btn-secondary" onclick="renderComplaintDbList()">Reset Selection</button>
                         </div>
 
                         <div style="margin-top:16px;" id="ccResult"></div>
+                    </div>
+                </section>
+
+                <!-- ============ API COMPARATOR ============ -->
+                <section class="feature-panel" data-feature="api-comparator">
+                    <div class="card">
+                        <h2>API Comparator</h2>
+                        <div class="subtitle">
+                            Compare API responses across environments (QA / UAT), auto-format payloads,
+                            and download comparison reports.
+                        </div>
+                        <iframe id="apiComparatorFrame"
+                                src="http://localhost:5173"
+                                title="API Comparator"
+                                style="width:100%; height:76vh; border:2px solid #e0e7ef; border-radius:10px; background:#fff;">
+                        </iframe>
+                    </div>
+                </section>
+
+                <!-- ============ FEATURE CONFIG ============ -->
+                <section class="feature-panel" data-feature="feature-config">
+                    <div class="card">
+                        <h2>Feature Config (app_feature_config)</h2>
+                        <div class="subtitle">
+                            View the <code>app_feature_config</code> table (ELIGIBILITY / FORM_DATA JSON)
+                            inside the complaintmanagement databaseshol. Every JSON key of every rule renders as its
+                            own editable field, so you can update <strong>one key at a time</strong> without
+                            rewriting the whole JSON.
+                        </div>
+
+                        <div class="form-group">
+                            <label>Databases to edit</label>
+                            <div id="fcDbList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;"></div>
+                        </div>
+
+                        <div class="form-row">
+                            <button class="btn btn-secondary" onclick="renderFeatureConfigDbList()">Reset Selection</button>
+                            <button class="btn btn-primary" onclick="fetchFeatureConfig()">Fetch Config</button>
+                        </div>
+
+                        <div style="margin-top:16px;" id="fcResult"></div>
                     </div>
                 </section>
             </div>
@@ -632,6 +674,17 @@
         </div>
     </div>
 
+    <!-- Feature Config Row Detail Modal -->
+    <div id="fcRowDetailModal" class="modal">
+        <div class="modal-content" style="max-width:860px; width:94%; max-height:86vh; overflow:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 id="fcRowDetailTitle" style="margin:0;">Row detail</h3>
+                <button class="btn btn-secondary btn-sm" onclick="closeFeatureConfigRowDetail()">Close</button>
+            </div>
+            <div id="fcRowDetailBody"></div>
+        </div>
+    </div>
+
     <script>
         /* ==================================================================
            NAVIGATION CONFIG — add new features here
@@ -643,18 +696,28 @@
             { id: 'nd-reasons',        label: 'ND Reasons',        icon: '📋', group: 'Main' },
             { id: 'route-sheet',       label: 'Route Sheet',       icon: '🚚', group: 'Main' },
             { id: 'settings',          label: 'Settings',          icon: '⚙️', group: 'Main' },
-            { id: 'complaint-cleanup', label: 'Complaint Clean Up', icon: '🧹', group: 'Complaints' }
+            { id: 'complaint-cleanup', label: 'Complaint Clean Up', icon: '🧹', group: 'Complaints' },
+            { id: 'api-comparator',    label: 'API Comparator',    icon: '🔍', group: 'Comparator' },
+            { id: 'feature-config',    label: 'Feature Config',    icon: '🧩', group: 'Complaints' }
         ];
 
         /* On-enter lifecycle hooks — run every time a feature becomes active.
            Register new features like: FEATURE_ON_ENTER['reports'] = () => loadReports(); */
+        function escapeHtml(s) {
+            if (s === null || s === undefined) return '';
+            return String(s).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
         const FEATURE_ON_ENTER = {
             'sale-marking': () => { resetForm(); },
             'rapid-sale-marking': () => { resetRapidForm(); },
             'nd-reasons':   () => loadNdReasonsPanel(),
             'route-sheet':  () => {},
             'settings':     () => loadSettingsPanel(),
-            'complaint-cleanup': () => renderComplaintDbList()
+            'complaint-cleanup': () => renderComplaintDbList(),
+            'feature-config':   () => renderFeatureConfigDbList()
         };
 
         function renderSidebar() {
@@ -680,6 +743,12 @@
         function navigateTo(featureId) {
             if (!FEATURES.some(f => f.id === featureId)) {
                 featureId = 'dashboard';
+            }
+            // Keep the current page in the URL (#/feature-config) so a refresh lands
+            // back on the same feature instead of booting to the dashboard.
+            if (history.replaceState) {
+                if (!featureId || !FEATURES.some(f => f.id === featureId)) featureId = 'dashboard';
+                history.replaceState(null, '', '#' + featureId);
             }
             document.querySelectorAll('.feature-panel').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -1862,6 +1931,102 @@
             return cleaned;
         }
 
+        async function fetchComplaints() {
+            const mobiles = parseComplaintMobiles(document.getElementById('ccMobiles').value);
+            if (!mobiles) return;
+            const databases = getSelectedComplaintDatabases();
+            if (databases.length === 0) { showAlert('Select at least one database', 'error'); return; }
+
+            const resultEl = document.getElementById('ccResult');
+            resultEl.innerHTML = '';
+            showLoading(`Fetching complaints for ${mobiles.length} mobile(s) across ${databases.length} database(s)...`);
+            try {
+                const response = await fetch('/api/complaint/fetch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobiles: mobiles, databases: databases })
+                });
+                const data = await response.json();
+                hideLoading();
+                if (data.success) {
+                    renderComplaintFetchResult(data.data);
+                    showAlert('✅ Complaints fetched', 'success');
+                } else {
+                    showAlert(`Error: ${data.message}`, 'error');
+                    resultEl.innerHTML = `<div class="alert alert-error">${data.message}</div>`;
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+                resultEl.innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+            }
+        }
+
+        function renderComplaintFetchResult(result) {
+            const targetId = result.targetCustomerId;
+            const resultEl = document.getElementById('ccResult');
+            let totalCount = 0;
+
+            let html = `<div class="stats-grid" style="margin-bottom:16px;">
+                <div class="stat-card"><div class="stat-label">Databases searched</div><div class="stat-value">${result.results.length}</div></div>
+                <div class="stat-card"><div class="stat-label">Target ID</div><div class="stat-value">${targetId}</div></div>
+            </div>`;
+
+            html += result.results.map(dbRes => {
+                let dbHtml = '';
+                let dbCount = 0;
+
+                for (const entry of dbRes.entries) {
+                    const isErr = entry.status === 'ERROR' || entry.status === 'CUSTOMER_NOT_FOUND';
+                    const badgeClass = entry.status === 'FETCHED' ? 'alert-success' : (isErr ? 'alert-error' : 'alert-warning');
+                    const statusTxt = entry.status === 'CUSTOMER_NOT_FOUND' ? 'Customer not found'
+                        : entry.status === 'ERROR' ? 'Error'
+                        : entry.status === 'FETCHED' ? 'Fetched'
+                        : entry.status;
+                    if (entry.complaintsCount) dbCount += entry.complaintsCount;
+
+                    dbHtml += `
+                        <div class="card" style="margin-bottom:12px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                <strong>${entry.mobile}</strong>
+                                <span><span class="alert ${badgeClass}" style="padding:2px 8px; font-size:11px;">${statusTxt}</span>
+                                <span style="margin-left:8px;">Complaints: <strong>${entry.complaintsCount ?? 0}</strong></span></span>
+                            </div>
+                            ${entry.customerId ? `<div class="subtitle">Customer ID: ${entry.customerId}</div>` : ''}
+                            ${renderComplaintRows(entry.complaints)}`;
+                    dbHtml += `</div>`;
+                }
+
+                totalCount += dbCount;
+                return `
+                    <div class="card">
+                        <h2>${dbRes.database} <span class="env-badge ${dbRes.env === 'UAT' ? 'uat' : ''}">${dbRes.env}</span></h2>
+                        <div class="subtitle">Total complaints: ${dbCount}</div>
+                        ${dbHtml || '<div class="subtitle">No data</div>'}
+                    </div>`;
+            }).join('');
+
+            html = `<div class="card">
+                <h2>Total complaints fetched: <strong>${totalCount}</strong></h2>
+            </div>` + html;
+
+            resultEl.innerHTML = html;
+        }
+
+        function renderComplaintRows(complaints) {
+            if (!complaints || complaints.length === 0) return '<div class="subtitle">No complaints found</div>';
+            const columns = Object.keys(complaints[0]);
+            const headers = columns.map(c => `<th>${c}</th>`).join('');
+            const rows = complaints.map(c => `<tr>${columns.map(col => {
+                const v = c[col];
+                return `<td>${v == null ? '' : String(v)}</td>`;
+            }).join('')}</tr>`).join('');
+            return `<table class="apitable" style="margin-top:8px;">
+                <thead><tr>${headers}</tr></thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+        }
+
         async function runComplaintCleanup() {
             const mobiles = parseComplaintMobiles(document.getElementById('ccMobiles').value);
             if (!mobiles) return;
@@ -1947,7 +2112,10 @@
         renderSidebar();
 
         document.addEventListener('DOMContentLoaded', () => {
-            navigateTo('dashboard');
+            // Restore the feature the user was on before the refresh (e.g. feature-config).
+            const h0 = location.hash.replace(/^#/, '');
+            const startFeature = h0 && FEATURES.some(f => f.id === h0) ? h0 : 'dashboard';
+            navigateTo(startFeature);
             loadCurrentEnvironment();
             const endpointCount = document.querySelectorAll('.feature-panel[data-feature="dashboard"] table.apitable tbody tr').length;
             document.getElementById('statEndpoints').textContent = endpointCount || 8;
@@ -1958,6 +2126,218 @@
                 if (e.key === 'Enter') viewRouteSheet();
             });
         });
+
+        // Back/forward buttons + manual hash edits re-navigate without a reload.
+        window.addEventListener('hashchange', () => {
+            const h = location.hash.replace(/^#/, '');
+            if (h && FEATURES.some(f => f.id === h)) navigateTo(h);
+        });
+
+        /* ================= FEATURE CONFIG (app_feature_config) ================= */
+        const FC_DATABASES = [
+            { database: 'complaintmanagement_QA', env: 'QA' },
+            { database: 'complaintmanagement_UAT', env: 'UAT' }
+        ].filter(db => COMPLAINT_DATABASES.flatMap(complaintDbListEntry =>
+            complaintDbListEntry.value === undefined ? [complaintDbListEntry] : complaintDbListEntry
+        ).some(d => d === db.database));
+
+        function renderFeatureConfigDbList() {
+            const container = document.getElementById('fcDbList');
+            if (!container) return;
+            container.innerHTML = FC_DATABASES.map(db => `
+                <label class="db-check">
+                    <input type="checkbox" value="${db.database}" checked>
+                    <span>${db.database}</span>
+                    <span class="env-badge ${db.env==='UAT'?'uat':''}" style="font-size:10px; padding:2px 8px;">${db.env}</span>
+                </label>`).join('');
+            const result = document.getElementById('fcResult');
+            if (result) result.innerHTML = '';
+        }
+
+        /* Clicking "Row #x" opens a modal with the row's full, diff-clean JSON
+           (ELIGIBILITY + FORM_DATA) so the user can view the details cleanly
+           without scrolling the whole page. */
+        function viewFeatureConfigRowDetail(database, rowId) {
+            const all = window.__fcFetchCache || [];
+            let row = null;
+            for (const db of all) {
+                if (db.database !== database) continue;
+                row = (db.rows || []).find(r => r.id === rowId);
+                if (row) break;
+            }
+            if (!row) { showAlert('Row ' + rowId + ' not found in ' + database, 'error'); return; }
+
+            const modal = document.getElementById('fcDetailModal');
+            if (!modal) return;
+            const body = document.getElementById('fcDetailBody');
+            const title = document.getElementById('fcDetailTitle');
+            title.textContent = `Row #${rowId} — ${database}`;
+            const eligibility = JSON.stringify(row.eligibility || [], null, 2)
+                .replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+            const formData = JSON.stringify(row.formData || {}, null, 2)
+                .replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+            body.innerHTML = `
+                <div style="margin-bottom:10px; font-weight:600; color:#1e293b;">Row #${rowId} — ${database}</div>
+                <div style="margin:8px 0; font-weight:600; color:#475569;">ELIGIBILITY</div>
+                <pre class="fc-detail-pre">${eligibility}</pre>
+                <div style="margin:8px 0; font-weight:600; color:#475569;">FORM_DATA</div>
+                <pre class="fc-detail-pre">${formData}</pre>`;
+            modal.style.display = 'block';
+        }
+
+        function closeFeatureConfigDetail() {
+            const modal = document.getElementById('fcDetailModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        /* Also stash the fetch cache so the "View details" button works.
+           Called from renderFeatureConfigResult after building HTML. */
+        function cacheFeatureConfigFetch(data) {
+            window.__fcFetchCache = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+            const res = document.getElementById('fcResult');
+            if (res && !document.getElementById('fcDetailModal')) {
+                const modal = document.createElement('div');
+                modal.id = 'fcDetailModal';
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width:720px; width:92%; max-height:86vh; overflow:auto;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                            <h3 id="fcDetailTitle" style="margin:0;">Row details</h3>
+                            <button class="btn btn-secondary" onclick="closeFeatureConfigDetail()">Close</button>
+                        </div>
+                        <div id="fcDetailBody"></div>
+                    </div>`;
+                document.body.appendChild(modal);
+            }
+        }
+
+        async function fetchFeatureConfig() {
+            const databases = Array.from(document.querySelectorAll('#fcDbList input[type="checkbox"]:checked'))
+                .map(cb => cb.value)
+                .filter(v => v && v !== 'undefined');
+            if (databases.length === 0) { showAlert('Select at least one database', 'error'); return; }
+
+            showLoading(`Fetching app_feature_config from ${databases.length} database(s)...`);
+            try {
+                const response = await fetch('/api/feature-config/fetch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ databases })
+                });
+                const data = await response.json();
+                hideLoading();
+                if (!data.success) { showAlert(data.message || 'Fetch failed', 'error'); return; }
+                renderFeatureConfigResult(data.data);
+            } catch (e) {
+                hideLoading();
+                showAlert('Fetch error: ' + e.message, 'error');
+            }
+        }
+
+        function renderFeatureConfigResult(dbResults) {
+            const result = document.getElementById('fcResult');
+            if (!result) return;
+            if (!dbResults || dbResults.length === 0) { result.innerHTML = '<div class="alert alert-info">No rows found.</div>'; return; }
+
+            let html = '';
+            for (const db of dbResults) {
+                html += `<div class="card" style="margin-bottom:14px;">
+                    <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3>${db.database} <span class="env-badge ${db.env==='UAT'?'uat':''}">${db.env}</span></h3>
+                        <span style="font-size:12px; color:#667;">${(db.rows||[]).length} row(s)</span>
+                    </div>`;
+
+                for (const row of (db.rows || [])) {
+                    html += `<div class="card" style="margin:10px 0; padding:12px; background:#f8fafc;">
+                        <div style="font-weight:600; margin-bottom:8px;">Row #${row.id} (TYPE ${row.type}, ENABLED ${row.enabled})
+                            <button class="btn btn-primary btn-sm" style="float:right;" onclick="viewFeatureConfigRowDetail('${db.database}', ${JSON.stringify(row).replace(/"/g,'&quot;')})">View details</button>
+                        </div>
+                        <table class="apitable" style="width:100%;">
+                            <thead><tr><th>Rule #</th><th>Key</th><th>Value</th><th></th></tr></thead>
+                            <tbody>`;
+
+                    const rules = row.eligibility || [];
+                    if (rules.length === 0) {
+                        html += `<tr><td colspan="4" style="color:#667;">No ELIGIBILITY rules</td></tr>`;
+                    }
+                    rules.forEach((rule, ri) => {
+                        const keys = [];
+                        for (const k of Object.keys(rule || {})) {
+                            keys.push({ key: k, value: JSON.stringify(rule[k]) });
+                        }
+                        if (keys.length === 0) { html += `<tr><td class="rule-idx">[${ri}]</td><td colspan="3" style="color:#667;">Empty rule</td></tr>`; return; }
+                        for (const {key, value} of keys) {
+                            html += `<tr>
+                                <td class="rule-idx">[${ri}]</td>
+                                <td><code>${key}</code></td>
+                                <td><input class="fc-rule-value" data-fc-value="${key}" value="${escapeHtml(value)}" style="width:100%;"></td>
+                                <td><button class="btn btn-primary btn-sm" onclick="updateFeatureConfigKey('${db.database}',${row.id},'ELIGIBILITY',${ri},'${key}',this)">Save</button></td>
+                            </tr>`;
+                        }
+                    });
+
+                    html += `</tbody></table>`;
+                    if (row.formData && Object.keys(row.formData).length) {
+                        html += `<div class="subtitle" style="margin-top:8px;">FORM_DATA</div><table class="apitable" style="width:100%;"><tbody>`;
+                        for (const k of Object.keys(row.formData)) {
+                            html += `<tr>
+                                <td><code>${k}</code></td>
+                                <td><input class="fc-rule-value" data-fc-value="${k}" value="${escapeHtml(JSON.stringify(row.formData[k]))}" style="width:100%;"></td>
+                                <td><button class="btn btn-primary btn-sm" onclick="updateFeatureConfigKey('${db.database}',${row.id},'FORM_DATA',-1,'${k}',this)">Save</button></td>
+                            </tr>`;
+                        }
+                        html += `</tbody></table>`;
+                    }
+                    html += `</div>`;
+                }
+                html += `</div>`;
+            }
+            result.innerHTML = html;
+        }
+
+        async function updateFeatureConfigKey(database, rowId, field, ruleIndex, key, btn) {
+            const row = btn.closest('tr');
+            const input = row ? row.querySelector('.fc-rule-value') : null;
+            if (!input) return;
+            const value = input.value;
+
+            showLoading(`Updating ${database} row ${rowId} ${field}[${ruleIndex}].${key}...`);
+            try {
+                const response = await fetch('/api/feature-config/update-key', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ database, rowId, field, ruleIndex, key, value })
+                });
+                const data = await response.json();
+                hideLoading();
+                if (!data.success) {
+                    showAlert(data.message || 'Update failed', 'error');
+                    return;
+                }
+                // Refresh the whole grid so it reflects the authoritative DB value.
+                const box = document.querySelector('#fcDbList input[type="checkbox"]:checked');
+                if (box) {
+                    const checked = Array.from(document.querySelectorAll('#fcDbList input[type="checkbox"]:checked')).map(c=>c.value);
+                    renderFeatureConfigResult(await refetchFeatureConfig(checked));
+                }
+            } catch (e) {
+                hideLoading();
+                showAlert('Update error: ' + e.message, 'error');
+            }
+        }
+
+        async function refetchFeatureConfig(databases) {
+            try {
+                const response = await fetch('/api/feature-config/fetch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ databases })
+                });
+                const data = await response.json();
+                return data.success ? data.data : null;
+            } catch (e) { return null; }
+        }
+
     </script>
 </body>
 </html>

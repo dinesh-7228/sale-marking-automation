@@ -29,6 +29,39 @@ public class ComplaintController {
     }
 
     /**
+     * Fetch (read-only) all complaints for the given mobile numbers in the given databases.
+     * Body: { "mobiles": ["9876543210", ...], "databases": ["complaintmanagement_QA", ...] }
+     */
+    @PostMapping("/fetch")
+    public ResponseEntity<?> fetchComplaints(@RequestBody Map<String, Object> request) {
+        try {
+            List<String> mobiles = parseMobiles(request.get("mobiles"));
+            List<String> databases = parseDatabases(request.get("databases"));
+
+            Map<String, Object> data = service.fetchComplaints(mobiles, databases);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "✓ Complaints fetched");
+            response.put("data", data);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+        } catch (Exception e) {
+            System.out.println("❌ Fetch complaints error: " + e.getMessage());
+            e.printStackTrace();
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Error while fetching complaints: " + e.getMessage());
+            errorResponse.put("errorType", e.getClass().getSimpleName());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
+    /**
      * Run complaint cleanup for the given mobile numbers in the given databases.
      * Body: { "mobiles": ["9876543210", ...], "databases": ["complaintmanagement_QA", ...] }
      */

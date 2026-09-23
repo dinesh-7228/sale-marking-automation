@@ -1,0 +1,19 @@
+[Unit]
+Description=Sale Marking Automation admin panel (Spring Boot, port 6161)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/sale-marking-automation
+# JAVA_HOME java-11 (same build JVM). DB creds come from EnvironmentFile so
+# secrets never live in git / the unit file.
+EnvironmentFile=/etc/sale-marking-automation.env
+ExecStart=/usr/bin/java -Xms128m -Xmx768m -jar /opt/sale-marking-automation/sale-marking-automation-1.0.0.jar
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
