@@ -234,7 +234,9 @@
                 <span>Admin Console · By Dinesh</span>
             </div>
             <nav class="sidebar-nav" id="sidebarNav"></nav>
-            <div class="sidebar-footer">Country Delight <br>Sale Marking Automation</div>
+            <div class="sidebar-footer">Country Delight Automation
+            <br> Powered By- WyntriQ
+            </div>
         </aside>
 
         <!-- Main -->
@@ -332,7 +334,7 @@
                             <h2>Step 1 · Search Customer</h2>
                             <div class="subtitle">Regular (non-rapid) delivery flow — place an order and mark the sale for a customer.</div>
                             <div class="form-group">
-                                <label>Mobile Number</label>
+                                <label for="phoneInput">Mobile Number</label>
                                 <input type="text" id="phoneInput" placeholder="Enter customer phone number" maxlength="10">
                             </div>
                             <button class="btn btn-primary" onclick="searchCustomer()">Search Customer</button>
@@ -360,11 +362,11 @@
                             <div id="manualProductBlock" style="display:none; margin-top:16px; padding:14px; border:2px dashed #6366f1; border-radius:8px; background:#f8faff;">
                                 <h3>No catalog products found — enter Product ID manually</h3>
                                 <div class="form-row" style="margin-top:8px;">
-                                    <label style="font-size:13px;">Product ID:</label>
+                                    <label for="manualProductId" style="font-size:13px;">Product ID:</label>
                                     <input type="number" id="manualProductId" min="1" placeholder="e.g. 183">
-                                    <label style="font-size:13px;">Qty:</label>
+                                    <label for="manualQty" style="font-size:13px;">Qty:</label>
                                     <input type="number" id="manualQty" min="1" value="1" style="width:70px;">
-                                    <label style="font-size:13px;">Type:</label>
+                                    <label for="manualType" style="font-size:13px;">Type:</label>
                                     <select id="manualType" style="padding:8px; border:1px solid #e0e7ef; border-radius:6px;">
                                         <option>one_time</option>
                                         <option>daily</option>
@@ -393,15 +395,15 @@
                             </div>
 
                             <div class="form-group">
-                                <label>Sale Marking Date</label>
+                                <label for="saleDateInput">Sale Marking Date</label>
                                 <input type="date" id="saleDateInput" onchange="updateSaleDateLabel()">
                             </div>
 
                             <div class="form-group">
-                                <label>Sale Type</label>
+                                <label for="saleTypeFull">Sale Type</label>
                                 <div style="display:flex; gap:24px; padding: 8px 0;">
                                     <label style="font-weight:400; display:flex; align-items:center; gap:6px; cursor:pointer;">
-                                        <input type="radio" name="saleType" value="FULL_SALE" onchange="onSaleTypeChange()"> Full Sale
+                                        <input type="radio" id="saleTypeFull" name="saleType" value="FULL_SALE" onchange="onSaleTypeChange()"> Full Sale
                                     </label>
                                     <label style="font-weight:400; display:flex; align-items:center; gap:6px; cursor:pointer;">
                                         <input type="radio" name="saleType" value="NON_DELIVERY" onchange="onSaleTypeChange()"> Non Delivery
@@ -410,7 +412,7 @@
                             </div>
 
                             <div class="form-group" id="ndReasonGroup" style="display:none;">
-                                <label>ND Reason *</label>
+                                <label for="ndReasonSelect">ND Reason *</label>
                                 <select id="ndReasonSelect">
                                     <option value="">Select ND Reason</option>
                                 </select>
@@ -432,7 +434,7 @@
                             <h2>Step 1 · Search Customer <span class="env-badge" style="background:#059669;">Rapid</span></h2>
                             <div class="subtitle">Rapid delivery flow — place a rapid order or sale-mark an already-placed one via the rapid API.</div>
                             <div class="form-group">
-                                <label>Mobile Number</label>
+                                <label for="rPhoneInput">Mobile Number</label>
                                 <input type="text" id="rPhoneInput" placeholder="Enter customer phone number" maxlength="10">
                             </div>
                             <button class="btn btn-primary" onclick="searchRapidCustomer()">Search Customer</button>
@@ -449,10 +451,10 @@
                             <div class="subtitle">Choose how to handle this rapid order, then select the delivery address.</div>
 
                             <div class="form-group">
-                                <label>Scenario *</label>
+                                <label for="rScenarioPlaceAndMark">Scenario *</label>
                                 <div style="display:flex; flex-direction:column; gap:6px; padding: 8px 0;">
                                     <label style="font-weight:400; display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 12px; border:1px solid #e0e7ef; border-radius:8px;">
-                                        <input type="radio" name="rRapidScenario" value="PLACE_AND_MARK" checked onchange="onRapidScenarioChange()">
+                                        <input type="radio" id="rScenarioPlaceAndMark" name="rRapidScenario" value="PLACE_AND_MARK" checked onchange="onRapidScenarioChange()">
                                         <span><strong>1 · Place Order &amp; Sale Mark</strong><br>
                                             <span style="font-size:12px; color:#64748b;">Place a new rapid order for the selected products, then mark the sale with automation.</span></span>
                                     </label>
@@ -498,11 +500,11 @@
                             <div id="rManualProductBlock" style="display:none; margin-top:16px; padding:14px; border:2px dashed #6366f1; border-radius:8px; background:#f8faff;">
                                 <h3>No catalog products found — enter Product ID manually</h3>
                                 <div class="form-row" style="margin-top:8px;">
-                                    <label style="font-size:13px;">Product ID:</label>
+                                    <label for="rManualProductId" style="font-size:13px;">Product ID:</label>
                                     <input type="number" id="rManualProductId" min="1" placeholder="e.g. 183">
-                                    <label style="font-size:13px;">Qty:</label>
+                                    <label for="rManualQty" style="font-size:13px;">Qty:</label>
                                     <input type="number" id="rManualQty" min="1" value="1" style="width:70px;">
-                                    <label style="font-size:13px;">Type:</label>
+                                    <label for="rManualType" style="font-size:13px;">Type:</label>
                                     <select id="rManualType" style="padding:8px; border:1px solid #e0e7ef; border-radius:6px;">
                                         <option>one_time</option>
                                         <option>daily</option>
@@ -573,15 +575,44 @@
                         <div class="subtitle">Recharge once, or set up AutoPay from <code class="api-path">autopay_config</code> (filter: smart_plan yes/no).</div>
 
                         <div class="form-group">
-                            <label>Mobile Number *</label>
-                            <input type="text" id="payPhoneInput" maxlength="10" placeholder="Enter 10-digit mobile number">
+                            <label for="payPhoneInput">Mobile Number *</label>
+                            <input type="text" id="payPhoneInput" maxlength="10" placeholder="Enter 10-digit mobile number" oninput="onPayNumberTyped()">
+                        </div>
+
+                        <!-- Recharge Once: amount input (hidden for AutoPay) -->
+                        <div class="form-group" id="payAmountBlock">
+                            <label for="payAmountInput">Recharge Amount (₹) *</label>
+                            <input type="number" id="payAmountInput" min="1" step="1" placeholder="e.g. 2000">
+                            <div style="margin-top:10px;">
+                                <label for="payStatusInput">Payment Status (force) </label>
+                                <select id="payStatusInput" style="margin-left:6px; padding:6px 10px; border:2px solid #e0e7ef; border-radius:8px; background:#fff;">
+                                    <option value="">Actual (polls API-7)</option>
+                                    <option value="SUCCESS">SUCCESS</option>
+                                    <option value="PENDING">PENDING</option>
+                                    <option value="FAILED">FAILED</option>
+                                </select>
+                                <div style="font-size:11px; color:#94a3b8; margin-top:4px;">
+                                    Juspay completion can't run server-side, so a forced status writes the
+                                    payment_requests row directly (SUCCESS/PENDING/FAILED).
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="payOffersGroup" style="border-top:1px dashed #e0e7ef; padding-top:12px; margin-top:2px;">
+                            <label for="payOffersList">Latest Recharge Offers <span style="font-weight:400; font-size:11px; color:#94a3b8;">(fetched after adding number)</span></label>
+                            <div style="display:flex; gap:8px; margin-bottom:8px;">
+                                <button type="button" class="btn btn-secondary" id="payFetchOffersBtn" onclick="fetchRechargeOffers()">Fetch Latest Offers</button>
+                                <div id="payOffersStatus" style="font-size:12px; color:#94a3b8; align-self:center;"></div>
+                            </div>
+                            <div id="payOffersList" style="max-height:240px; overflow-y:auto; border:1px solid #e0e7ef; border-radius:8px; padding:6px; display:none;"></div>
+                            <div id="payAppliedOfferInfo" style="font-size:12px; margin-top:8px; display:none;"></div>
                         </div>
 
                         <div class="form-group">
-                            <label>Payment Action</label>
+                            <label for="payActionRecharge">Payment Action</label>
                             <div style="display:flex; gap:10px; flex-wrap:wrap;">
                                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
-                                    <input type="radio" name="payAction" value="RECHARGE_ONCE" checked onchange="onPayActionChange()"> Recharge Once
+                                    <input type="radio" id="payActionRecharge" name="payAction" value="RECHARGE_ONCE" checked onchange="onPayActionChange()"> Recharge Once
                                 </label>
                                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
                                     <input type="radio" name="payAction" value="AUTOPAY" onchange="onPayActionChange()"> AutoPay Setup
@@ -592,7 +623,7 @@
                         <!-- AutoPay-only: config picker populated from autopay_config (smart_plan filter) -->
                         <div id="payAutopayBlock" style="display:none;">
                             <div class="form-group">
-                                <label>Smart Plan Filter</label>
+                                <label for="paySmartPlanFilter">Smart Plan Filter</label>
                                 <select id="paySmartPlanFilter" onchange="loadAutopayConfigOptions()">
                                     <option value="">All</option>
                                     <option value="yes">Yes</option>
@@ -600,7 +631,11 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Available AutoPay Configs</label>
+                                <label for="payAutopaySearch">Search AutoPay Config by ID</label>
+                                <input type="text" id="payAutopaySearch" placeholder="Enter config ID e.g. 3" oninput="filterAutopayConfigs()">
+                            </div>
+                            <div class="form-group">
+                                <label for="payAutopayList">Available AutoPay Configs</label>
                                 <div id="payAutopayList" style="max-height:260px; overflow-y:auto; border:1px solid #e0e7ef; border-radius:8px; padding:6px;"></div>
                             </div>
                             <div style="font-size:11px; color:#94a3b8;" id="payAutopayHint">SELECT id, plan_name, smart_plan, amount FROM autopay_config WHERE smart_plan IN (filter)</div>
@@ -611,6 +646,74 @@
                             <button class="btn btn-secondary" onclick="resetPaymentForm()" style="margin-left:8px;">Reset</button>
                         </div>
                         <div id="payResult" style="margin-top:14px;"></div>
+                    </div>
+                </section>
+
+                <!-- ============ AUTOPAY CUSTOMER REMOVAL ============ -->
+                <section class="feature-panel" data-feature="autopay-customer-removal">
+                    <div class="card">
+                        <h2>Autopay Customer Removed</h2>
+                        <div class="subtitle">
+                            Re-point the <code class="api-path">CUSTOMER</code> column of the entered customer DB ids to the cleaned customer
+                            DB id <strong>12345</strong> in <code class="api-path">autopay_customers</code> across the selected databases.
+                        </div>
+
+                        <div class="form-group">
+                            <label for="acrCustomerIds">Customer DB ID(s) *</label>
+                            <textarea id="acrCustomerIds" rows="4" placeholder="Enter one customer DB id per line (or comma separated)&#10;e.g. 9941351" style="width:100%; max-width:560px; padding:10px 12px; border:2px solid #e0e7ef; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="acrTargetId">Target Customer DB ID (fixed)</label>
+                            <input type="number" id="acrTargetId" value="12345" disabled>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="acrDbList">Databases to update</label>
+                            <div id="acrDbList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;"></div>
+                        </div>
+
+                        <div class="form-row">
+                            <button class="btn btn-secondary" onclick="fetchAutopayRemovalRows()">Fetch Rows</button>
+                            <button class="btn btn-primary" onclick="runAutopayRemoval()">Run Removal</button>
+                            <button class="btn btn-secondary" onclick="renderDbList('acrDbList')">Reset Selection</button>
+                        </div>
+
+                        <div style="margin-top:16px;" id="acrResult"></div>
+                    </div>
+                </section>
+
+                <!-- ============ MEMBERSHIP CUSTOMER REMOVAL ============ -->
+                <section class="feature-panel" data-feature="membership-customer-removal">
+                    <div class="card">
+                        <h2>Membership Customer Removed</h2>
+                        <div class="subtitle">
+                            Re-point the <code class="api-path">CUSTOMER</code> column of the entered customer DB ids to the cleaned customer
+                            DB id <strong>12345</strong> in <code class="api-path">customer_membership_group</code> across the selected databases.
+                        </div>
+
+                        <div class="form-group">
+                            <label for="mcrCustomerIds">Customer DB ID(s) *</label>
+                            <textarea id="mcrCustomerIds" rows="4" placeholder="Enter one customer DB id per line (or comma separated)&#10;e.g. 9951317" style="width:100%; max-width:560px; padding:10px 12px; border:2px solid #e0e7ef; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="mcrTargetId">Target Customer DB ID (fixed)</label>
+                            <input type="number" id="mcrTargetId" value="12345" disabled>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="mcrDbList">Databases to update</label>
+                            <div id="mcrDbList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;"></div>
+                        </div>
+
+                        <div class="form-row">
+                            <button class="btn btn-secondary" onclick="fetchMembershipRemovalRows()">Fetch Rows</button>
+                            <button class="btn btn-primary" onclick="runMembershipRemoval()">Run Removal</button>
+                            <button class="btn btn-secondary" onclick="renderDbList('mcrDbList')">Reset Selection</button>
+                        </div>
+
+                        <div style="margin-top:16px;" id="mcrResult"></div>
                     </div>
                 </section>
 
@@ -634,17 +737,17 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Customer Mobile Number(s) *</label>
+                            <label for="ccMobiles">Customer Mobile Number(s) *</label>
                             <textarea id="ccMobiles" rows="4" placeholder="Enter one mobile number per line (or comma separated)&#10;e.g. 9876543210" style="width:100%; max-width:560px; padding:10px 12px; border:2px solid #e0e7ef; border-radius:8px; font-size:14px; resize:vertical;"></textarea>
                         </div>
 
                         <div class="form-group">
-                            <label>Target Customer DB ID (fixed)</label>
+                            <label for="ccTargetId">Target Customer DB ID (fixed)</label>
                             <input type="number" id="ccTargetId" value="12345" disabled>
                         </div>
 
                         <div class="form-group">
-                            <label>Databases to update</label>
+                            <label for="ccDbList">Databases to update</label>
                             <div id="ccDbList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;"></div>
                         </div>
 
@@ -686,7 +789,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Databases to edit</label>
+                            <label for="fcDbList">Databases to edit</label>
                             <div id="fcDbList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;"></div>
                         </div>
 
@@ -747,7 +850,9 @@
             { id: 'complaint-cleanup', label: 'Complaint Clean Up', icon: '🧹', group: 'Complaints' },
             { id: 'api-comparator',    label: 'API Comparator',    icon: '🔍', group: 'Comparator' },
             { id: 'feature-config',    label: 'Feature Config',    icon: '🧩', group: 'Complaints' },
-            { id: 'payment',           label: 'Payment',           icon: '💳', group: 'Complaints' }
+            { id: 'payment',           label: 'Payment',           icon: '💳', group: 'Complaints' },
+            { id: 'autopay-customer-removal',    label: 'Autopay Customer Removal', icon: '♻️', group: 'Complaints' },
+            { id: 'membership-customer-removal', label: 'Membership Customer Removal', icon: '🎫', group: 'Complaints' }
         ];
 
         /* On-enter lifecycle hooks — run every time a feature becomes active.
@@ -767,7 +872,9 @@
             'settings':     () => loadSettingsPanel(),
             'complaint-cleanup': () => renderComplaintDbList(),
             'feature-config':   () => renderFeatureConfigDbList(),
-            'payment':          () => renderPaymentPanel()
+            'payment':          () => renderPaymentPanel(),
+            'autopay-customer-removal':    () => renderDbList('acrDbList'),
+            'membership-customer-removal': () => renderDbList('mcrDbList')
         };
 
         function renderSidebar() {
@@ -817,25 +924,29 @@
             }
         }
 
-        /* ================= PAYMENT (architecture only — API endpoints pending) ================= */
-        const PAY_API = '/api/payment';   // ← TBD: prefix confirmed when backend API is provided
+        /* ================= PAYMENT (Recharge Once via payment.md APIs) ================= */
+        const PAY_API = '/api/payment';
 
         let paySelectedConfig = null;
+        let payAppliedRechargeOffer = null;   /* {offer_id, customer_offer_id, coupon_code} after Apply */
+        let payAmountPlaceholder = null;      /* amount_placeholder from offers/recharge/fetch → prefills amount */
+        let payAutopayConfigs = [];
 
         async function renderPaymentPanel() {
             resetPaymentForm();
-            loadAutopayConfigOptions();
+            await loadAutopayConfigOptions();
         }
 
-        function onPayActionChange() {
-            const block = document.getElementById('payAutopayBlock');
+        async function onPayActionChange() {
+            const autopayBlock = document.getElementById('payAutopayBlock');
+            const amountBlock = document.getElementById('payAmountBlock');
             const action = document.querySelector('input[name="payAction"]:checked').value;
-            block.style.display = action === 'AUTOPAY' ? 'block' : 'none';
-            if (action === 'AUTOPAY') loadAutopayConfigOptions();
+            autopayBlock.style.display = action === 'AUTOPAY' ? 'block' : 'none';
+            amountBlock.style.display = action === 'AUTOPAY' ? 'none' : 'block';
+            if (action === 'AUTOPAY') await loadAutopayConfigOptions();
         }
 
-        /* Mirror of autopay_config select filtered by smart_plan. Wired to a placeholder
-           that is replaced by the real API path once shared (e.g. GET /api/payment/autopay-configs). */
+        /* Mirror of autopay_config select filtered by smart_plan. */
         async function loadAutopayConfigOptions() {
             const list = document.getElementById('payAutopayList');
             if (!list) return;
@@ -848,15 +959,30 @@
                 if (!data.success) { list.innerHTML = `<div style="padding:10px; font-size:12px; color:#b91c1c;">${data.message || 'Failed to load'}</div>`; return; }
                 renderAutopayConfigOptions(data.data || []);
             } catch (e) {
-                list.innerHTML = `<div style="padding:10px; font-size:12px; color:#b91c1c;">Endpoint not wired yet (${PAY_API}/autopay-configs). Share the API and extend \`loadAutopayConfigOptions\`.</div>`;
+                list.innerHTML = `<div style="padding:10px; font-size:12px; color:#b91c1c;">Failed to load configs: ${e.message}</div>`;
             }
         }
 
         function renderAutopayConfigOptions(configs) {
+            payAutopayConfigs = configs || [];
+            filterAutopayConfigs();
+        }
+
+        /* Filters the cached autopay configs by the search box (ID match). */
+        function filterAutopayConfigs() {
             const list = document.getElementById('payAutopayList');
+            if (!list) return;
+            const search = (document.getElementById('payAutopaySearch').value || '').trim();
+            const filtered = search
+                ? payAutopayConfigs.filter(c => String(c.id).includes(search))
+                : payAutopayConfigs;
             list.innerHTML = '';
-            if (!configs.length) { list.innerHTML = '<div style="padding:10px; font-size:12px; color:#94a3b8;">No autopay configs for this smart_plan filter.</div>'; return; }
-            for (const c of configs) {
+            if (!filtered.length) {
+                list.innerHTML = '<div style="padding:10px; font-size:12px; color:#94a3b8;">'
+                    + (search ? 'No autopay config found for ID ' + search + '.' : 'No autopay configs for this smart_plan filter.') + '</div>';
+                return;
+            }
+            for (const c of filtered) {
                 list.insertAdjacentHTML('beforeend', `<label style="display:flex; align-items:center; gap:8px; padding:8px; border:1px solid #e0e7ef; border-radius:6px; margin:4px 0; cursor:pointer; background:#f8fafc;">
                     <input type="radio" name="payAutopayConfig" value="${c.id}" onchange="selectAutopayConfig(${c.id})">
                     <span style="font-size:13px;"><strong>#${c.id}</strong> &middot; ${c.plan_name || 'plan'} &middot; smart_plan=<code>${c.smart_plan}</code> &middot; ₹${c.amount}</span>
@@ -868,25 +994,204 @@
 
         function resetPaymentForm() {
             document.getElementById('payPhoneInput').value = '';
+            document.getElementById('payAmountInput').value = '';
+            document.getElementById('payStatusInput').value = '';
             document.getElementById('paySmartPlanFilter').value = '';
+            document.getElementById('payAutopaySearch').value = '';
+            payAutopayConfigs = [];
             paySelectedConfig = null;
+            payAppliedRechargeOffer = null;
+            payAmountPlaceholder = null;
             const block = document.getElementById('payAutopayBlock');
             if (block) block.style.display = 'none';
+            const amountBlock = document.getElementById('payAmountBlock');
+            if (amountBlock) amountBlock.style.display = 'block';
             const act = document.querySelector('input[name="payAction"][value="RECHARGE_ONCE"]');
             if (act) act.checked = true;
+            payAppliedOffer = null;
+            const oList = document.getElementById('payOffersList');
+            if (oList) { oList.innerHTML = ''; oList.style.display = 'none'; }
+            const oInfo = document.getElementById('payAppliedOfferInfo');
+            if (oInfo) { oInfo.innerHTML = ''; oInfo.style.display = 'none'; }
+            const oSt = document.getElementById('payOffersStatus');
+            if (oSt) oSt.innerHTML = '';
             const result = document.getElementById('payResult');
             if (result) result.innerHTML = '';
         }
 
-        /* placeholder submit — real wiring replaces `payResult` render once API provided */
+        /* NEW: offers/recharge/fetch — loads the latest recharge offer cards for the
+           entered number and prefills the amount input with the returned amount_placeholder. */
+        /* Fires as the user types the number: once a full 10-digit number is present,
+           auto-fetch the latest recharge offers and prefill the amount from
+           amount_placeholder (matching the app's after-add-number behavior). */
+        async function onPayNumberTyped() {
+            const phone = document.getElementById('payPhoneInput').value.replace(/\D/g,'');
+            document.getElementById('payPhoneInput').value = phone;
+            if (phone.length === 10) await fetchRechargeOffers();
+        }
+
+        async function fetchRechargeOffers() {
+            const phone = document.getElementById('payPhoneInput').value.trim();
+            const st = document.getElementById('payOffersStatus');
+            const list = document.getElementById('payOffersList');
+            const result = document.getElementById('payResult');
+            if (!/^[0-9]{10}$/.test(phone)) { if (st) st.innerHTML = '<span style="color:#b91c1c;">Add a 10-digit number first.</span>'; return; }
+            if (st) st.innerHTML = 'Fetching latest offers …';
+            try {
+                const resp = await fetch(PAY_API + '/offers/recharge-fetch?phone=' + encodeURIComponent(phone));
+                const data = await resp.json();
+                if (!data.success) { if (st) st.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(data.message || 'Fetch failed') + '</span>'; return; }
+                const d = data.data || {};
+                const ph = d.amount_placeholder;
+                payAmountPlaceholder = ph != null ? String(ph) : null;
+                const amountInput = document.getElementById('payAmountInput');
+                if (payAmountPlaceholder && amountInput) {
+                    amountInput.value = payAmountPlaceholder;
+                    const hint = document.getElementById('payAmountPlaceholderHint');
+                    if (hint) hint.innerHTML = 'Prefilled from <code>amount_placeholder</code>: ₹' + escapeHtml(payAmountPlaceholder) + ' — edit if needed.';
+                }
+                renderPayOffers(d);
+                if (st) st.innerHTML = `<span style="color:#047857;">Offers loaded (${(d.details||[]).length})</span>`;
+            } catch (e) {
+                if (st) st.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(e.message) + '</span>';
+            }
+        }
+
+        function renderPayOffers(d) {
+            const list = document.getElementById('payOffersList');
+            const appliedInfo = document.getElementById('payAppliedOfferInfo');
+            if (!list) return;
+            list.innerHTML = '';
+            list.style.display = 'block';
+            const offers = d.details || [];
+            if (!offers.length) { list.innerHTML = '<div style="padding:8px; font-size:12px; color:#94a3b8;">No recharge offers available right now.</div>'; return; }
+            for (const o of offers) {
+                const amt = o.benefit_amount != null ? '₹' + o.benefit_amount : '';
+                const sell = o.is_fomo === true ? ' <span style="font-size:10px; color:#b91c1c; border:1px solid #fecaca; border-radius:4px; padding:0 4px;">FOMO</span>' : '';
+                const applied = payAppliedRechargeOffer && String(payAppliedRechargeOffer.offer_id) === String(o.offer_id);
+                list.insertAdjacentHTML('beforeend', `<div style="display:flex; align-items:center; gap:8px; padding:8px; border:1px solid ${applied?'#a7f3d0':'#e0e7ef'}; border-radius:8px; margin:4px 0; background:${applied?'#ecfdf5':'#f8fafc'};">
+                    <div style="flex:1; font-size:13px; min-width:0;">
+                        <div style="font-weight:600;">#${escapeHtml(String(o.offer_id))} &middot; <code>${escapeHtml(String(o.coupon_code||''))}</code> &middot; ${escapeHtml(String(o.benefit_label||o.benefit_description||''))}${sell}</div>
+                        <div style="color:#64748b; font-size:11px; margin-top:2px;">${o.benefit_amount ? 'Benefit ₹'+o.benefit_amount : ''}${o.direct_cash_amount ? ' · Cash ₹'+o.direct_cash_amount : ''}${o.active===false ? ' · inactive' : ''}</div>
+                    </div>
+                    ${applied
+                        ? '<span style="font-size:11px; color:#047857; font-weight:600;">✓ Applied</span>'
+                        : `<button class="btn btn-sm" onclick="applyRechargeOffer(${o.offer_id}, '${escapeHtml(String(o.coupon_code||''))}')">Apply</button>`}
+                </div>`);
+            }
+            if (appliedInfo) {
+                const a = payAppliedRechargeOffer;
+                if (a) { appliedInfo.style.display='block'; appliedInfo.innerHTML = `Applied: offer <code>#${a.offer_id}</code> coupon <code>${escapeHtml(a.coupon_code||'')}</code> · customer_offer_id <code>${escapeHtml(a.customer_offer_id||'')}</code>`; }
+                else { appliedInfo.style.display='none'; appliedInfo.innerHTML=''; }
+            }
+        }
+
+        /* NEW: offers/recharge/apply — apply any offer by offer_id, then the recharge
+           proceeds with the applied offer. */
+        async function applyRechargeOffer(offerId, couponCode) {
+            const phone = document.getElementById('payPhoneInput').value.trim();
+            const amount = document.getElementById('payAmountInput').value.trim();
+            const st = document.getElementById('payOffersStatus');
+            if (st) st.innerHTML = 'Applying offer #' + offerId + ' …';
+            try {
+                const resp = await fetch(PAY_API + '/offers/recharge-apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: phone, recharge_amount: amount || '0', coupon_code: couponCode, offer_id: String(offerId) })
+                });
+                const data = await resp.json();
+                if (!data.success) { if (st) st.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(data.message || 'Apply failed') + '</span>'; return; }
+                const d = data.data || {};
+                payAppliedRechargeOffer = {
+                    offer_id: String(offerId),
+                    coupon_code: couponCode || (d.offer && d.offer.coupon_code) || '',
+                    customer_offer_id: d.customer_offer_id || ''
+                };
+                if (st) st.innerHTML = '<span style="color:#047857;">✓ Applied #' + offerId + ' — proceed with Recharge Once.</span>';
+                renderPayOffers(data.data || {});
+            } catch (e) {
+                if (st) st.innerHTML = '<span style="color:#b91c1c;">' + escapeHtml(e.message) + '</span>';
+            }
+        }
+
+        /* Runs the payment.md recharge-once series on the backend and renders the
+           recharge amount + cashback (extracted from getSavedCardAndRecentPaymentsForCustomer). */
         async function submitPayment() {
             const phone = document.getElementById('payPhoneInput').value.trim();
+            const amount = document.getElementById('payAmountInput').value.trim();
+            const payStatus = document.getElementById('payStatusInput').value.trim() || null;
             const result = document.getElementById('payResult');
             if (!/^[0-9]{10}$/.test(phone)) { result.innerHTML = '<div class="alert alert-error">Enter a valid 10-digit mobile number.</div>'; return; }
             const action = document.querySelector('input[name="payAction"]:checked').value;
+            if (action === 'RECHARGE_ONCE') {
+                if (!amount || parseFloat(amount) <= 0) { result.innerHTML = '<div class="alert alert-error">Enter a valid recharge amount.</div>'; return; }
+                showLoading(`Recharging ₹${amount} for ${phone} …`);
+                try {
+                    const resp = await fetch(PAY_API + '/recharge', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            phone: phone,
+                            amount: amount,
+                            paymentStatus: payStatus,
+                            offerId: payAppliedRechargeOffer ? String(payAppliedRechargeOffer.offer_id) : null,
+                            customerOfferId: payAppliedRechargeOffer ? String(payAppliedRechargeOffer.customer_offer_id) : null
+                        })
+                    });
+                    const data = await resp.json();
+                    hideLoading();
+                    renderRechargeResult(data);
+                } catch (e) {
+                    hideLoading();
+                    result.innerHTML = '<div class="alert alert-error">Recharge failed: ' + escapeHtml(e.message) + '</div>';
+                }
+                return;
+            }
             if (action === 'AUTOPAY' && !paySelectedConfig) { result.innerHTML = '<div class="alert alert-error">Select an AutoPay config.</div>'; return; }
             result.innerHTML = `<div class="alert alert-info">Ready: phone=<code>${phone}</code> action=<code>${action}</code>${action==='AUTOPAY' ? ` config=<code>#${paySelectedConfig}</code>` : ''}<br>
-                <span style="font-size:12px;">POST ${PAY_API}${action==='AUTOPAY'?'/autopay/setup':'/recharge'} — endpoint pending; wire after API shared.</span></div>`;
+                <span style="font-size:12px;">AutoPay setup flow not part of the payment.md recharge series.</span></div>`;
+        }
+
+        function renderRechargeResult(data) {
+            const result = document.getElementById('payResult');
+            if (!data.success) { result.innerHTML = '<div class="alert alert-error">' + escapeHtml(data.message || 'Recharge failed') + '</div>'; return; }
+            const d = data.data || {};
+            const amount = d.amount || '—';
+            const cashback = d.cashback || '';
+            const orderId = d.order_id || '—';
+            const txnStatus = d.transaction_status || 'DONE';
+            const walletBefore = d.wallet_balance_before != null ? '₹' + Number(d.wallet_balance_before).toFixed(2) : '—';
+            const walletAfter = d.updated_wallet_balance != null ? '₹' + Number(d.updated_wallet_balance).toFixed(2) : '—';
+
+            let html = '<div style="padding:14px; border-radius:10px; border:1px solid #e0e7ef; background:#f8fafc; font-size:14px;">';
+            html += `<div style="display:flex; align-items:center; gap:8px; font-size:16px; font-weight:700; margin-bottom:10px;">✅ Recharge submitted</div>`;
+            html += summaryRow('Recharge Amount', `<strong>₹${amount}</strong>`, '#7c3aed');
+            if (cashback) {
+                html += summaryRow('Cashback', `<strong style="color:#059669;">₹${cashback}</strong>`, '#059669');
+            } else {
+                html += summaryRow('Cashback', 'Not available for this payment', '#94a3b8');
+            }
+            html += summaryRow('Wallet Balance (before)', walletBefore, '#334155');
+            html += summaryRow('Wallet Balance (after)', walletAfter, '#334155');
+            html += summaryRow('Transaction ID', escapeHtml(orderId), '#334155');
+            html += summaryRow('Status', escapeHtml(txnStatus), '#334155');
+            html += '</div>';
+
+            if (d.wallet_screen) {
+                const tiles = d.wallet_screen.recharge_tiles;
+                if (Array.isArray(tiles) && tiles.length) {
+                    html += '<div style="margin-top:10px; font-size:12px; color:#64748b;">Suggested recharge: ' +
+                        tiles.map(t => `₹${t}`).join(', ') + '</div>';
+                }
+            }
+            result.innerHTML = html;
+
+            function summaryRow(label, value, color) {
+                return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #e2e8f0;">
+                    <span style="color:#64748b; font-size:13px;">${label}</span>
+                    <span style="color:${color}; font-weight:600;">${value}</span>
+                </div>`;
+            }
         }
 
         /* ================= Alerts & loading ================= */
@@ -1867,11 +2172,13 @@
             if (el) {
                 const now = new Date();
                 const yyyy = now.getFullYear();
-                const mm = String(now.getMonth() + 1).padStart(2, '0');
-                const dd = String(now.getDate()).padStart(2, '0');
+                const mm = zeroPad2(now.getMonth() + 1);
+                const dd = zeroPad2(now.getDate());
                 el.value = `${yyyy}-${mm}-${dd}`;
             }
         }
+
+        function zeroPad2(n) { return (n < 10 ? '0' : '') + n; }
 
         function backToSearch() {
             document.getElementById('productSelection').style.display = 'none';
@@ -2230,6 +2537,209 @@
             resultEl.innerHTML = html;
         }
 
+        /* ================= AUTOPAY / MEMBERSHIP CUSTOMER REMOVAL ================= */
+        const AUTO_MEMBERSHIP_DB_LIST = ['beejapuri_QA', 'beejapuri_UAT'];
+
+        function renderDbList(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = AUTO_MEMBERSHIP_DB_LIST.map(db => {
+                const isUat = db.endsWith('_UAT');
+                return `
+                    <label class="db-check">
+                        <input type="checkbox" value="${db}" checked>
+                        <span>${db}</span>
+                        <span class="env-badge ${isUat ? 'uat' : ''}" style="font-size:10px; padding:2px 8px;">${isUat ? 'UAT' : 'QA'}</span>
+                    </label>`;
+            }).join('');
+        }
+
+        function getSelectedRemovalDatabases(containerId) {
+            return Array.from(document.querySelectorAll(`#${containerId} input[type="checkbox"]:checked`))
+                .map(cb => cb.value);
+        }
+
+        function parseRemovalCustomerIds(inputId) {
+            const raw = document.getElementById(inputId).value;
+            const parts = raw.split(/[,;\n]+/).map(s => s.trim()).filter(s => s.length > 0);
+            if (parts.length === 0) {
+                showAlert('Enter at least one customer DB id', 'error');
+                return null;
+            }
+            const ids = [];
+            for (const p of parts) {
+                if (!/^\d+$/.test(p)) {
+                    showAlert(`Invalid customer DB id: ${p} (must be numeric)`, 'error');
+                    return null;
+                }
+                if (!ids.includes(p)) ids.push(p);
+            }
+            return ids;
+        }
+
+        async function fetchRemovalRows(cfg) {
+            const customerIds = parseRemovalCustomerIds(cfg.inputId);
+            if (!customerIds) return;
+            const databases = getSelectedRemovalDatabases(cfg.dbListId);
+            if (databases.length === 0) { showAlert('Select at least one database', 'error'); return; }
+
+            const resultEl = document.getElementById(cfg.resultId);
+            resultEl.innerHTML = '';
+            showLoading(`Fetching rows for ${customerIds.length} customer id(s) across ${databases.length} database(s)...`);
+            try {
+                const response = await fetch(cfg.fetchEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customerIds: customerIds.map(Number), databases: databases })
+                });
+                const data = await response.json();
+                hideLoading();
+                if (data.success) {
+                    renderRemovalFetchResult(resultEl, data.data);
+                    showAlert('✅ Rows fetched', 'success');
+                } else {
+                    showAlert(`Error: ${data.message}`, 'error');
+                    resultEl.innerHTML = `<div class="alert alert-error">${data.message}</div>`;
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+                resultEl.innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+            }
+        }
+
+        function renderRemovalFetchResult(resultEl, result) {
+            const targetId = result.targetCustomerId;
+            let totalCount = 0;
+
+            let html = `<div class="stats-grid" style="margin-bottom:16px;">
+                <div class="stat-card"><div class="stat-label">Databases searched</div><div class="stat-value">${result.results.length}</div></div>
+                <div class="stat-card"><div class="stat-label">Target ID</div><div class="stat-value">${targetId}</div></div>
+                <div class="stat-card"><div class="stat-label">Table</div><div class="stat-value" style="font-size:12px;">${result.table}</div></div>
+            </div>`;
+
+            html += result.results.map(dbRes => {
+                const rows = dbRes.rows || [];
+                totalCount += rows.length;
+                const columns = rows.length ? Object.keys(rows[0]) : [];
+                const headers = columns.map(c => `<th>${c}</th>`).join('');
+                const body = rows.map(r => `<tr>${columns.map(col => {
+                    const v = r[col];
+                    return `<td>${v == null ? '' : String(v)}</td>`;
+                }).join('')}</tr>`).join('');
+                return `
+                    <div class="card">
+                        <h2>${dbRes.database} <span class="env-badge ${dbRes.env === 'UAT' ? 'uat' : ''}">${dbRes.env}</span></h2>
+                        <div class="subtitle">Total rows: ${rows.length}</div>
+                        ${rows.length
+                            ? `<table class="apitable"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table>`
+                            : '<div class="subtitle">No rows found</div>'}
+                    </div>`;
+            }).join('');
+
+            html = `<div class="card">
+                <h2>Total rows fetched: <strong>${totalCount}</strong></h2>
+            </div>` + html;
+
+            resultEl.innerHTML = html;
+        }
+
+        async function runRemoval(cfg) {
+            const customerIds = parseRemovalCustomerIds(cfg.inputId);
+            if (!customerIds) return;
+            const databases = getSelectedRemovalDatabases(cfg.dbListId);
+            if (databases.length === 0) { showAlert('Select at least one database', 'error'); return; }
+
+            if (!confirm(`Re-point ${customerIds.length} customer id(s) to 12345 in ${databases.join(', ')}?\n\nThe ${cfg.table} rows for these ids will be moved to the cleaned customer.`)) return;
+
+            const resultEl = document.getElementById(cfg.resultId);
+            resultEl.innerHTML = '';
+            showLoading(`Removing ${customerIds.length} customer id(s) across ${databases.length} database(s)...`);
+            try {
+                const response = await fetch(cfg.runEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customerIds: customerIds.map(Number), databases: databases })
+                });
+                const data = await response.json();
+                hideLoading();
+                if (data.success) {
+                    renderRemovalResult(resultEl, data.data);
+                    showAlert('✅ Customer removal completed', 'success');
+                } else {
+                    showAlert(`Error: ${data.message}`, 'error');
+                    resultEl.innerHTML = `<div class="alert alert-error">${data.message}</div>`;
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+                resultEl.innerHTML = `<div class="alert alert-error">${error.message}</div>`;
+            }
+        }
+
+        function renderRemovalResult(resultEl, result) {
+            const targetId = result.targetCustomerId;
+            let totalMoved = 0;
+            let totalFound = 0;
+            let html = `<div class="stats-grid" style="margin-bottom:16px;">
+                <div class="stat-card"><div class="stat-label">Databases run</div><div class="stat-value">${result.results.length}</div></div>
+                <div class="stat-card"><div class="stat-label">Target ID</div><div class="stat-value">${targetId}</div></div>
+                <div class="stat-card"><div class="stat-label">Table</div><div class="stat-value" style="font-size:12px;">${result.table}</div></div>
+            </div>`;
+
+            html += result.results.map(dbRes => {
+                let found = dbRes.rowsFound || 0;
+                let moved = dbRes.rowsUpdated || 0;
+                totalFound += found;
+                totalMoved += moved;
+                return `
+                    <div class="card">
+                        <h2>${dbRes.database} <span class="env-badge ${dbRes.env === 'UAT' ? 'uat' : ''}">${dbRes.env}</span></h2>
+                        <div class="subtitle">Found: ${found} · Moved to ${targetId}: ${moved}</div>
+                        <table class="apitable">
+                            <thead><tr><th>Found</th><th>Moved</th><th>Status</th><th>Message</th></tr></thead>
+                            <tbody>
+                                <tr>
+                                    <td>${found}</td>
+                                    <td>${moved}</td>
+                                    <td><span class="alert ${found > 0 ? 'alert-success' : 'alert-warning'}" style="padding:2px 8px; font-size:11px;">${found > 0 ? 'Updated' : 'No rows'}</span></td>
+                                    <td>${dbRes.message || ''}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>`;
+            }).join('');
+
+            html = `<div class="card">
+                <h2>Total rows found: <strong>${totalFound}</strong> · moved to ${targetId}: <strong>${totalMoved}</strong></h2>
+            </div>` + html;
+
+            resultEl.innerHTML = html;
+        }
+
+        const AUTOPAY_REMOVAL_CFG = {
+            inputId: 'acrCustomerIds',
+            dbListId: 'acrDbList',
+            resultId: 'acrResult',
+            table: 'autopay_customers',
+            fetchEndpoint: '/api/payment/autopay-customer-removal/fetch',
+            runEndpoint: '/api/payment/autopay-customer-removal/run'
+        };
+
+        const MEMBERSHIP_REMOVAL_CFG = {
+            inputId: 'mcrCustomerIds',
+            dbListId: 'mcrDbList',
+            resultId: 'mcrResult',
+            table: 'customer_membership_group',
+            fetchEndpoint: '/api/payment/membership-customer-removal/fetch',
+            runEndpoint: '/api/payment/membership-customer-removal/run'
+        };
+
+        function fetchAutopayRemovalRows() { fetchRemovalRows(AUTOPAY_REMOVAL_CFG); }
+        function runAutopayRemoval() { runRemoval(AUTOPAY_REMOVAL_CFG); }
+        function fetchMembershipRemovalRows() { fetchRemovalRows(MEMBERSHIP_REMOVAL_CFG); }
+        function runMembershipRemoval() { runRemoval(MEMBERSHIP_REMOVAL_CFG); }
+
         /* ================= Boot ================= */
         renderSidebar();
 
@@ -2259,9 +2769,7 @@
         const FC_DATABASES = [
             { database: 'complaintmanagement_QA', env: 'QA' },
             { database: 'complaintmanagement_UAT', env: 'UAT' }
-        ].filter(db => COMPLAINT_DATABASES.flatMap(complaintDbListEntry =>
-            complaintDbListEntry.value === undefined ? [complaintDbListEntry] : complaintDbListEntry
-        ).some(d => d === db.database));
+        ].filter(db => COMPLAINT_DATABASES.includes(db.database));
 
         function renderFeatureConfigDbList() {
             const container = document.getElementById('fcDbList');
@@ -2289,11 +2797,11 @@
             }
             if (!row) { showAlert('Row ' + rowId + ' not found in ' + database, 'error'); return; }
 
-            const modal = document.getElementById('fcDetailModal');
+            const modal = document.getElementById('fcRowDetailModal');
             if (!modal) return;
-            const body = document.getElementById('fcDetailBody');
-            const title = document.getElementById('fcDetailTitle');
-            title.textContent = `Row #${rowId} — ${database}`;
+            const title = document.getElementById('fcRowDetailTitle');
+            const body = document.getElementById('fcRowDetailBody');
+            if (title) title.textContent = `Row #${rowId} — ${database}`;
             const eligibility = JSON.stringify(row.eligibility || [], null, 2)
                 .replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
             const formData = JSON.stringify(row.formData || {}, null, 2)
@@ -2307,30 +2815,9 @@
             modal.style.display = 'block';
         }
 
-        function closeFeatureConfigDetail() {
-            const modal = document.getElementById('fcDetailModal');
+        function closeFeatureConfigRowDetail() {
+            const modal = document.getElementById('fcRowDetailModal');
             if (modal) modal.style.display = 'none';
-        }
-
-        /* Also stash the fetch cache so the "View details" button works.
-           Called from renderFeatureConfigResult after building HTML. */
-        function cacheFeatureConfigFetch(data) {
-            window.__fcFetchCache = (data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-            const res = document.getElementById('fcResult');
-            if (res && !document.getElementById('fcDetailModal')) {
-                const modal = document.createElement('div');
-                modal.id = 'fcDetailModal';
-                modal.className = 'modal';
-                modal.innerHTML = `
-                    <div class="modal-content" style="max-width:720px; width:92%; max-height:86vh; overflow:auto;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                            <h3 id="fcDetailTitle" style="margin:0;">Row details</h3>
-                            <button class="btn btn-secondary" onclick="closeFeatureConfigDetail()">Close</button>
-                        </div>
-                        <div id="fcDetailBody"></div>
-                    </div>`;
-                document.body.appendChild(modal);
-            }
         }
 
         async function fetchFeatureConfig() {
@@ -2376,8 +2863,8 @@
             const result = document.getElementById('fcResult');
             if (!result) return;
             fcLastResult = dbResults;
+            window.__fcFetchCache = dbResults || [];
             if (!dbResults || dbResults.length === 0) { result.innerHTML = '<div class="alert alert-info">No rows found.</div>'; return; }
-
 
             let html = '';
             for (const db of dbResults) {
@@ -2395,12 +2882,12 @@
                             ${isHidden ? `<span style="color:#94a3b8; font-size:12px;">&mdash; hidden</span>` : ''}
                             <span style="float:right;">
                             <button class="btn ${isHidden?'btn-secondary':'btn-outline-dark'} btn-sm" onclick="toggleFeatureConfigRowHidden('${db.database}',${row.id})">${isHidden?'Show':'Hide'}</button>
-                            <button class="btn btn-primary btn-sm" onclick="viewFeatureConfigRowDetail('${db.database}', ${JSON.stringify(row).replace(/"/g,'&quot;')})">View details</button>
+                            <button class="btn btn-primary btn-sm" onclick="viewFeatureConfigRowDetail('${db.database}',${row.id})">View details</button>
                             </span>
                         </div>
                         <table class="apitable" style="width:100%; display:${isHidden?'none':''};">
                             <thead><tr><th>Rule #</th><th>Key</th><th>Value</th><th></th></tr></thead>
-                            <tbody>
+                            <tbody>`;
 
                     if (!isHidden) {
                         const rules = row.eligibility || [];
@@ -2422,7 +2909,8 @@
                                 </tr>`;
                             }
                         });
-
+                        html += `</tbody></table>`;
+                    } else {
                         html += `</tbody></table>`;
                     }
                     if (row.formData && Object.keys(row.formData).length) {
@@ -2442,6 +2930,7 @@
             }
             result.innerHTML = html;
         }
+
 
         async function updateFeatureConfigKey(database, rowId, field, ruleIndex, key, btn) {
             const row = btn.closest('tr');
