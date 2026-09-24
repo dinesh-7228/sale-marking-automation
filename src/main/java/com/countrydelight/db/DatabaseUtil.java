@@ -205,13 +205,19 @@ private Connection getConnection() throws SQLException {
     }
 
     /**
-     * Fetches the latest customer token (refresh_token) from the customer_token
-     * table in the regular beejapuri database for the given customer DB id.
+     * Fetches the latest refresh token for the given customer DB id.
+     * The refresh token lives in the auth_token table (current mechanism);
+     * customer_token is kept as a fallback for legacy rows.
      *
-     * @param customerId the customer DB id (e.g. 9935686)
+     * @param customerId the customer DB id (e.g. 9938341)
      * @return the TOKEN string (refresh token), or null if not found
      */
     public String getCustomerToken(String customerId) throws Exception {
+        String authToken = getCustomerAuthToken(customerId);
+        if (authToken != null && !authToken.trim().isEmpty()) {
+            return authToken;
+        }
+        // Fallback to legacy customer_token rows
         String query = "SELECT * FROM customer_token ct WHERE ct.CUSTOMER = ? ORDER BY ct.id DESC LIMIT 1";
         try (Connection con = getConnection();
              PreparedStatement ps = con.prepareStatement(query)) {
@@ -219,14 +225,38 @@ private Connection getConnection() throws SQLException {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     String token = rs.getString("TOKEN");
-                    System.out.println("✓ Latest customer token found for customer " + customerId);
+                    System.out.println("⚠ Using legacy customer_token row for customer " + customerId);
                     return token;
                 }
             }
         } catch (SQLException e) {
             throw new RuntimeException("CRITICAL: Failed to fetch customer token for " + customerId + ": " + e.getMessage(), e);
         }
-        System.out.println("⚠ No customer_token found for customer " + customerId);
+        System.out.println("⚠ No auth_token found for customer " + customerId);
+        return null;
+    }
+
+    /**
+     * Fetches the latest refresh token from the auth_token table for a customer.
+     *
+     * @param customerId the customer DB id
+     * @return the AUTH_TOKEN string, or null if not found
+     */
+    private String getCustomerAuthToken(String customerId) throws Exception {
+        String query = "SELECT * FROM auth_token at WHERE at.CUSTOMER = ? ORDER BY at.id DESC LIMIT 1";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setString(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String token = rs.getString("AUTH_TOKEN");
+                    System.out.println("✓ Latest auth_token found for customer " + customerId);
+                    return token;
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("CRITICAL: Failed to fetch auth_token for " + customerId + ": " + e.getMessage(), e);
+        }
         return null;
     }
 
@@ -321,6 +351,14 @@ private Connection getConnection() throws SQLException {
      * QA -> beejapuri_QA, UAT -> beejapuri_UAT.
      */
     private String getDbName() {
+        return getActiveDbName();
+    }
+
+    /**
+     * Returns the active beejapuri schema name based on the environment:
+     * QA -> beejapuri_QA, UAT -> beejapuri_UAT.
+     */
+    public String getActiveDbName() {
         String envName = envConfig.getEnv();
         String dbName = envName != null && envName.equalsIgnoreCase("UAT") ? "beejapuri_UAT" : "beejapuri_QA";
         System.out.println("✓ Using database for " + (envName == null ? "QA" : envName.toUpperCase()) + ": " + dbName);
@@ -372,6 +410,271 @@ private Connection getConnection() throws SQLException {
         }
 
         return result;
+    }
+
+    /**
+     * Updates a payment_requests row's PAYMENT_STATUS (and related fields) in
+     * the active beejapuri database, keyed by the Juspay order/transaction id.
+     * Used to record forced statuses (SUCCESS/PENDING/FAILED) when the real
+     * Juspay completion step cannot be executed via the payment.md API series.
+     *
+     * @param transactionId  the TRANSACTION_ID (order_id) from generateTransaction
+     * @param status         PAYMENT_STATUS value: SUCCESS, PENDING or FAILED
+     * @param cashback       cashback to store into BENEFIT_AMOUNT ("" → skip)
+     * @param customerId     customer.ID (payment_requests.CUSTOMER)
+     * @param amount         recharge amount (payment_requests.AMOUNT)
+     * @param paymentMethod  PAYMENT_METHOD value (e.g. "NB-DUMMY BANK")
+     * @return number of rows updated
+     */
+    public int updatePaymentRequestStatus(String transactionId, String status, String cashback,
+                                          int customerId, String amount, String paymentMethod) throws Exception {
+        String db = getActiveDbName();
+        String table = paymentRequestsTableFor(db);
+        List<String> sets = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+
+        sets.add("PAYMENT_STATUS = ?");
+        params.add(status);
+        sets.add("UPDATED_DATE = NOW()");
+        if (status.equalsIgnoreCase("SUCCESS")) {
+            // SUCCESS also records the cashback benefit and the amount for the row.
+            Double cb = parseCashback(cashback);
+            if (cb != null && cb > 0) {
+                sets.add("BENEFIT_AMOUNT = ?");
+                params.add(cb);
+            }
+            sets.add("AMOUNT = ?");
+            params.add(amount);
+            sets.add("PAYMENT_METHOD = ?");
+            params.add(paymentMethod);
+            sets.add("PAYMENT_GATEWAY = ?");
+            params.add("JUSPAY");
+        }
+
+        String query = "UPDATE " + table + " SET " + String.join(", ", sets)
+                + " WHERE TRANSACTION_ID = ?";
+        params.add(transactionId);
+
+        try (Connection con = getConnectionForDatabase(db);
+             PreparedStatement ps = con.prepareStatement(query)) {
+            for (int i = 0; i < params.size(); i++) {
+                Object p = params.get(i);
+                if (p instanceof Number) {
+                    ps.setBigDecimal(i + 1, new java.math.BigDecimal(p.toString()));
+                } else {
+                    ps.setString(i + 1, p.toString());
+                }
+            }
+            int updated = ps.executeUpdate();
+            System.out.println("✓ payment_requests updated [" + db + "]: " + updated
+                    + " row(s), transaction_id=" + transactionId + ", status=" + status);
+            return updated;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to update payment_requests in " + db + ": " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Credits a successful wallet recharge into beejapuri (active DB), mirroring
+     * what the CMS performs when a payment completes (CHARGED):
+     *   - payments         : a CHARGED row for the transaction (payment_gateway=DUMMY,
+     *                         juspay_payment_method=95, pg_transaction_id=cds-{txn}-1)
+     *   - wallet_balance   : BALANCE += amount + cashback, LAST_WALLET_TYPE='Funds Addition'
+     *   - wallet_transactions : a 'Funds Addition' row per credit (amount, then cashback),
+     *                           main row mapped to the payments row via PAYMENTS
+     *   - wallet_recharge  : a new recharge row (PAYMENT_TYPE=9 Net Banking, REMARKS='ONLINE')
+     *
+     * @return map with old_balance, credited, cashback, new_balance, payment_id
+     */
+    public Map<String, Object> applyWalletCredit(int customerId, String amount, String cashback,
+                                                 String offerId, String paymentMethod, String transactionId)
+            throws Exception {
+        String db = getActiveDbName();
+        double amt = parseNumer("amount", amount, 0.0);
+        double cb = parseCashbackToNumber(cashback);
+        double oldBalance = 0;
+        double oldCdCredits = 0;
+
+        try (Connection con = getConnectionForDatabase(db)) {
+            con.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = con.prepareStatement(
+                        "SELECT BALANCE, CD_CREDITS_BALANCE FROM wallet_balance WHERE CUSTOMER = ?")) {
+                    ps.setInt(1, customerId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            oldBalance = rs.getBigDecimal("BALANCE") == null ? 0 : rs.getBigDecimal("BALANCE").doubleValue();
+                            oldCdCredits = rs.getBigDecimal("CD_CREDITS_BALANCE") == null ? 0 : rs.getBigDecimal("CD_CREDITS_BALANCE").doubleValue();
+                        }
+                    }
+                }
+
+                double newBalance = oldBalance + amt + cb;
+                double newCdCredits = oldCdCredits + cb;
+
+                long paymentId = insertPaymentDetails(con, customerId, amt, transactionId, nowTimestamp());
+                java.util.Date now = new java.util.Date();
+
+                // 1) wallet_recharge
+                int paymentTypeId = resolvePaymentTypeId(paymentMethod);
+                try (PreparedStatement ps = con.prepareStatement(
+                        "INSERT INTO wallet_recharge (CUSTOMER, DATE, RECHARGE_AMOUNT, PAYMENT_TYPE, REMARKS, CREATED_DATE) "
+                        + "VALUES (?, ?, ?, ?, 'ONLINE', ?)")) {
+                    ps.setInt(1, customerId);
+                    ps.setTimestamp(2, new java.sql.Timestamp(now.getTime()));
+                    ps.setInt(3, (int) Math.round(amt));
+                    ps.setInt(4, paymentTypeId);
+                    ps.setTimestamp(5, new java.sql.Timestamp(now.getTime()));
+                    ps.executeUpdate();
+                }
+
+                // 2) wallet_transactions — main recharge credit (mapped to payments row)
+                insertWalletTransaction(con, customerId, amt, oldBalance + amt, offerId, now, paymentId);
+
+                // 3) wallet_transactions — cashback credit (if any, not payment-linked)
+                if (cb > 0) {
+                    insertWalletTransaction(con, customerId, cb, oldBalance + amt + cb, offerId, now, 0);
+                }
+
+                // 4) wallet_balance (upsert)
+                try (PreparedStatement ps = con.prepareStatement(
+                        "INSERT INTO wallet_balance (CUSTOMER, BALANCE, LAST_WALLET_TYPE, LAST_TXN_DATE, CD_CREDITS_BALANCE) "
+                        + "VALUES (?, ?, 'Funds Addition', ?, ?) "
+                        + "ON DUPLICATE KEY UPDATE BALANCE = VALUES(BALANCE), "
+                        + "LAST_WALLET_TYPE = VALUES(LAST_WALLET_TYPE), LAST_TXN_DATE = VALUES(LAST_TXN_DATE), "
+                        + "CD_CREDITS_BALANCE = VALUES(CD_CREDITS_BALANCE)")) {
+                    ps.setInt(1, customerId);
+                    ps.setBigDecimal(2, new java.math.BigDecimal(String.valueOf(newBalance)));
+                    ps.setTimestamp(3, new java.sql.Timestamp(now.getTime()));
+                    ps.setBigDecimal(4, new java.math.BigDecimal(String.valueOf(newCdCredits)));
+                    ps.executeUpdate();
+                }
+
+                con.commit();
+
+                Map<String, Object> w = new HashMap<>();
+                w.put("old_wallet_balance", oldBalance);
+                w.put("credited", amt);
+                w.put("cashback_credited", cb);
+                w.put("new_wallet_balance", newBalance);
+                w.put("cd_credits_balance", newCdCredits);
+                w.put("payment_id", paymentId);
+                w.put("transaction_id", transactionId);
+                System.out.println("💰 Wallet credited [" + db + "]: customer=" + customerId
+                        + " amount=" + amt + " cashback=" + cb + " old=" + oldBalance + " new=" + newBalance
+                        + " payments_id=" + paymentId);
+                return w;
+            } catch (SQLException e) {
+                con.rollback();
+                throw new RuntimeException("Failed to credit wallet in " + db + ": " + e.getMessage(), e);
+            }
+        }
+    }
+
+    private java.sql.Timestamp nowTimestamp() {
+        return new java.sql.Timestamp(new java.util.Date().getTime());
+    }
+
+    /**
+     * Inserts the CHARGED payment row (mirrors the real Juspay completion flow)
+     * and returns the generated payments.ID used to link wallet_transactions.PAYMENTS.
+     */
+    private long insertPaymentDetails(Connection con, int customerId, double amount,
+                                      String transactionId, java.sql.Timestamp now) throws SQLException {
+        if (transactionId == null || transactionId.trim().isEmpty()) {
+            throw new SQLException("Cannot create payments row without a transaction/order id");
+        }
+        String pgTxnId = "cds-" + transactionId + "-1";
+        try (PreparedStatement ps = con.prepareStatement(
+                "INSERT INTO payments (CUSTOMER, TRANSACTION_ID, TRANSACTION_STATUS, AMOUNT, PG_TRANSACTION_ID, "
+                + "PAYMENT_TYPE, PAYMENT_GATEWAY, JUSPAY_PAYMENT_METHOD, CREATED_DATE, UPDATED_DATE, APP_VERSION) "
+                + "VALUES (?, ?, 'CHARGED', ?, ?, 9, 'DUMMY', 95, ?, ?, '99.99.99')",
+                Statement.RETURN_GENERATED_KEYS)) {
+            ps.setInt(1, customerId);
+            ps.setString(2, transactionId);
+            ps.setBigDecimal(3, new java.math.BigDecimal(String.valueOf(amount)));
+            ps.setString(4, pgTxnId);
+            ps.setTimestamp(5, now);
+            ps.setTimestamp(6, now);
+            ps.executeUpdate();
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    return keys.getLong(1);
+                }
+            }
+            throw new SQLException("No generated payments.ID for transaction " + transactionId);
+        }
+    }
+
+    private void insertWalletTransaction(Connection con, int customerId, double amount,
+                                         double walletBalance, String offerId, java.util.Date now, long paymentId)
+            throws SQLException {
+        try (PreparedStatement ps = con.prepareStatement(
+                "INSERT INTO wallet_transactions (DATE, CUSTOMER, TYPE, AMOUNT, CREDIT_BALANCE, WALLET_BALANCE, "
+                + "CREATED_DATE, OFFER_ID, PAYMENTS) VALUES (?, ?, 'Funds Addition', ?, 0, ?, ?, ?, ?)")) {
+            ps.setTimestamp(1, new java.sql.Timestamp(now.getTime()));
+            ps.setInt(2, customerId);
+            ps.setBigDecimal(3, new java.math.BigDecimal(String.valueOf(amount)));
+            ps.setBigDecimal(4, new java.math.BigDecimal(String.valueOf(walletBalance)));
+            ps.setTimestamp(5, new java.sql.Timestamp(now.getTime()));
+            if (offerId == null || offerId.trim().isEmpty() || "0".equals(offerId.trim())) {
+                ps.setNull(6, Types.BIGINT);
+            } else {
+                ps.setLong(6, Long.parseLong(offerId.trim()));
+            }
+            if (paymentId > 0) {
+                ps.setLong(7, paymentId);
+            } else {
+                ps.setNull(7, Types.INTEGER);
+            }
+            ps.executeUpdate();
+        }
+    }
+
+    /**
+     * Maps the payment method to the payment_type.id used by wallet_recharge.
+     * NB-DUMMY BANK → 9 (Net Banking); everything else falls back to 9.
+     */
+    private int resolvePaymentTypeId(String paymentMethod) {
+        if (paymentMethod == null || paymentMethod.trim().isEmpty()) {
+            return 9;
+        }
+        String m = paymentMethod.trim().toUpperCase();
+        if (m.contains("UPI")) return 17;
+        if (m.contains("CARD")) return 19;
+        if (m.contains("AUTOPAY")) return 21;
+        return 9; // Net Banking
+    }
+
+    private double parseNumer(String field, String raw, double dflt) {
+        if (raw == null || raw.trim().isEmpty()) {
+            return dflt;
+        }
+        try {
+            return Double.parseDouble(raw.trim().replace(",", ""));
+        } catch (NumberFormatException e) {
+            return dflt;
+        }
+    }
+
+    private double parseCashbackToNumber(String cashback) {
+        Double v = parseCashback(cashback);
+        return v == null ? 0.0 : v;
+    }
+
+    private String paymentRequestsTableFor(String dbName) {
+        return "payment_requests";
+    }
+
+    private Double parseCashback(String cashback) {
+        if (cashback == null || cashback.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(cashback.trim().replace(",", ""));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

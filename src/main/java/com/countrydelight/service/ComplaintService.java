@@ -7,6 +7,8 @@ import com.countrydelight.db.DatabaseUtil;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Types;
 import java.util.*;
 
 /**
@@ -122,6 +124,109 @@ public class ComplaintService {
         response.put("targetCustomerId", TARGET_CUSTOMER_ID);
         response.put("results", results);
         return response;
+    }
+
+    /**
+     * Fetches (read-only) all complaints for the given mobiles in the given databases.
+     *
+     * @param mobiles   normalized mobile numbers (10 digits each)
+     * @param databases target database names (subset of DATABASES)
+     * @return per-database results with per-mobile complaint rows
+     */
+    public Map<String, Object> fetchComplaints(List<String> mobiles, List<String> databases) throws Exception {
+        if (mobiles == null || mobiles.isEmpty()) {
+            throw new IllegalArgumentException("At least one mobile number is required");
+        }
+        if (databases == null || databases.isEmpty()) {
+            throw new IllegalArgumentException("Select at least one database");
+        }
+
+        List<Map<String, Object>> results = new ArrayList<>();
+
+        for (String db : databases) {
+            boolean known = DATABASES.stream().anyMatch(m -> db.equals(m.get("database")));
+            if (!known) {
+                continue;
+            }
+            String resolverDb = db.endsWith("_UAT") ? "beejapuri_UAT" : "beejapuri_QA";
+
+            List<Map<String, Object>> entries = new ArrayList<>();
+            for (String mobile : mobiles) {
+                Map<String, Object> entry = new HashMap<>();
+                entry.put("mobile", mobile);
+                try {
+                    Long customerId = resolveCustomerIdByMobile(resolverDb, mobile);
+                    if (customerId == null) {
+                        entry.put("status", "CUSTOMER_NOT_FOUND");
+                        entry.put("message", "No customer found for mobile in " + resolverDb);
+                        entries.add(entry);
+                        continue;
+                    }
+                    entry.put("customerId", customerId);
+                    List<Map<String, Object>> complaints = fetchComplaintsForCustomer(db, customerId);
+                    entry.put("complaints", complaints);
+                    entry.put("complaintsCount", complaints.size());
+                    entry.put("status", "FETCHED");
+                    entry.put("message", "Fetched " + complaints.size() + " complaint(s) for customer " + customerId);
+                } catch (Exception e) {
+                    entry.put("status", "ERROR");
+                    entry.put("message", e.getMessage());
+                }
+                entries.add(entry);
+            }
+
+            Map<String, Object> dbResult = new HashMap<>();
+            dbResult.put("database", db);
+            dbResult.put("env", db.endsWith("_UAT") ? "UAT" : "QA");
+            dbResult.put("entries", entries);
+            results.add(dbResult);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("targetCustomerId", TARGET_CUSTOMER_ID);
+        response.put("results", results);
+        return response;
+    }
+
+    /**
+     * Fetches all complaint rows referencing the customer id from the target database.
+     * Throws if the complaint table is missing. Blob/geometry columns are skipped.
+     */
+    private List<Map<String, Object>> fetchComplaintsForCustomer(String dbName, Long customerId) throws Exception {
+        List<Map<String, Object>> complaints = new ArrayList<>();
+        String sql = "SELECT * FROM complaint WHERE customer = ?";
+        try (Connection con = dbUtil.getConnectionForDatabase(dbName);
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setLong(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                ResultSetMetaData meta = rs.getMetaData();
+                while (rs.next()) {
+                    Map<String, Object> row = new HashMap<>();
+                    for (int i = 1; i <= meta.getColumnCount(); i++) {
+                        String column = meta.getColumnName(i);
+                        int type = meta.getColumnType(i);
+                        Object value = rs.getObject(i);
+                        if (value instanceof byte[] && (type == Types.LONGVARBINARY || type == Types.BLOB
+                                || type == Types.BINARY || type == Types.VARBINARY)) {
+                            continue;
+                        }
+                        if (value instanceof byte[]) {
+                            byte[] bytes = (byte[]) value;
+                            value = bytes.length > 0 && bytes[0] != 0;
+                        }
+                        row.put(column.toLowerCase(), value);
+                    }
+                    complaints.add(row);
+                }
+            }
+        } catch (java.sql.SQLException e) {
+            if (e.getMessage() != null && e.getMessage().toLowerCase().contains("doesn't exist")) {
+                throw new RuntimeException("DB " + dbName + " has no complaint table: " + e.getMessage(), e);
+            }
+            throw e;
+        }
+        System.out.println("✓ Fetched " + complaints.size() + " complaint(s) for customer " + customerId + " in " + dbName);
+        return complaints;
     }
 
     /**

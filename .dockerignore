@@ -1,0 +1,7 @@
+.git
+.planning
+.deploy
+node_modules
+deploy
+*.log
+.idea
