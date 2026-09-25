@@ -1,0 +1,14 @@
+=== primary RDS (beejapuri / complaint) ===
+  OK version=8.4.8 user=dinesh@% schema=beejapuri_QA
+=== rapid RDS ===
+  OK version=8.4.8 user=dinesh@% schema=rapiddelivery_QA
+=== schema list on primary RDS ===
+  db: beejapuri_QA
+  db: beejapuri_UAT
+  db: complaintmanagement_QA
+  db: complaintmanagement_UAT
+  db: information_schema
+  db: messaging_service_DEV
+  db: offer_membership_QA
+  db: offer_membership_UAT
+  db: performance_schema
