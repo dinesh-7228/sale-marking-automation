@@ -134,4 +134,24 @@ public class PaymentApiClient {
                 .post(getBaseUrl() + "/api/offers/recharge/apply");
         return parse(response, "offers/recharge/apply");
     }
+
+    /**
+     * API-8 (AutoPay series): Fetch the smart-plan AutoPay offers for a customer.
+     * <p>The AutoPay series reuses the same payment context as Recharge-Once: the
+     * saved-card / recent-payments fetch already ran with {@code payment_source="2"}
+     * (see DEFAULT_PAYMENT_SOURCE in PaymentService), so this endpoint just sends the
+     * selected {@code autopay_id} (plan id) plus the recharge amount.</p>
+     *
+     * @param customerAuth   customer bearer token
+     * @param autopayId      the selected autopay config id (e.g. the smart-plan plan id)
+     * @param rechargeAmount the amount to be recharged on the plan
+     */
+    public JsonNode getAutopayOffers(String customerAuth, String autopayId, String rechargeAmount) {
+        String body = "{\"autopay_id\":\"" + autopayId + "\",\"recharge_amount\":\"" + rechargeAmount + "\"}";
+        Response response = request(customerAuth)
+                .contentType(ContentType.JSON)
+                .body(body)
+                .post(getBaseUrl() + "/api/v2/customer/wallet/autopay_offers");
+        return parse(response, "wallet/autopay_offers");
+    }
 }

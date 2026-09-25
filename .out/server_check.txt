@@ -1,0 +1,2 @@
+182261 /bin/bash -c cd /home/dinesh/Documents/sale-marking-automation && pgrep -af 'sale-marking-automation-1.0.0.jar' > .out/server_check.txt 2>&1; echo "pgrep_exit=$? bytes=$(wc -c < .out/server_check.txt)" >> .out/server_check.txt
+pgrep_exit=0 bytes=234

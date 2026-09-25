@@ -350,7 +350,213 @@ public class PaymentService {
         return configs;
     }
 
+/**
+     * AutoPay series (API-8, per the smart-plan series in payment.md).
+     *
+     * <p>Series: resolve customer auth → {@code getSavedCardAndRecentPaymentsForCustomer}
+     * with {@code payment_source="2"} (the AutoPay payment source — the same
+     * {@link #DEFAULT_PAYMENT_SOURCE} value the recharge-once series already uses) →
+     * {@code wallet/autopay_offers} with the selected {@code autopay_id} (the AutoPay
+     * config id) + {@code recharge_amount}. On a SUCCESS status the recharge amount
+     * is also credited to the customer wallet, mirroring the recharge-once series.</p>
+     *
+     * @param phone          10-digit customer mobile number
+     * @param configId       the selected AutoPay config id (the {@code autopay_id} of API-8)
+     * @param rechargeAmount the amount to be set up for AutoPay recharge
+     * @return step-by-step series result incl. the autopay_offers payload + wallet credit
+     */
+    public Map<String, Object> setupAutopay(String phone, String configId, String rechargeAmount) throws Exception {
+        return setupAutopay(phone, configId, rechargeAmount, null);
+    }
+
+    /**
+     * Overload that lets the caller force the AutoPay transaction status for QA/Demo
+     * (e.g. wish to observe a non-SUCCESS wallet behaviour without a real mandate).
+     *
+     * @param paymentStatus optional forced status (SUCCESS/PENDING/FAILED); null = poll real status.
+     */
+    public Map<String, Object> setupAutopay(String phone, String configId, String rechargeAmount, String paymentStatus) throws Exception {
+        if (phone == null || !phone.matches("\\d{10}")) {
+            throw new IllegalArgumentException("Enter a valid 10-digit mobile number");
+        }
+        if (configId == null || configId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Select an AutoPay config");
+        }
+        String normalizedAmount = normalizeAmount(rechargeAmount);
+        String normalizedConfigId = configId.trim();
+
+        String customerToken = resolveCustomerToken(phone);
+        int customerId = resolveCustomerId(phone);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("phone", phone);
+        result.put("config_id", normalizedConfigId);
+        result.put("amount", normalizedAmount);
+
+        // AutoPay saved-cards / recent payments run with payment_source "2" (the AutoPay
+        // source) — same value the recharge-once series uses. This also drives the
+        // cashback amount and the wallet balance before setup.
+        JsonNode savedCards = paymentApiClient.getSavedCardAndRecentPayments(customerToken, DEFAULT_PAYMENT_SOURCE);
+        result.put("saved_cards_response", savedCards);
+        String cashback = extractCashback(savedCards);
+        result.put("cashback", cashback);
+
+        // API-8: fetch the smart-plan AutoPay offers for the selected config + amount.
+        JsonNode autopayOffers = paymentApiClient.getAutopayOffers(customerToken, normalizedConfigId, normalizedAmount);
+        result.put("autopay_offers", autopayOffers);
+
+        String orderId = autopayOffers.path("data").path("order_id").asText(
+                autopayOffers.path("data").path("merchant_transaction_id").asText(""));
+        result.put("order_id", orderId);
+
+        Map<String, Object> status = new HashMap<>();
+        status.put("transaction_status", "PENDING_STARTED");
+        String txnStatusMsg = autopayOffers.path("data").path("status").asText("");
+        String finalStatus = "PENDING_STARTED";
+        boolean success = "SUCCESS".equalsIgnoreCase(txnStatusMsg)
+                || "SUCCESSFUL".equalsIgnoreCase(txnStatusMsg)
+                || "FINISHED".equalsIgnoreCase(txnStatusMsg)
+                || "COMPLETED".equalsIgnoreCase(txnStatusMsg);
+        if (success) {
+            finalStatus = "SUCCESS";
+        }
+
+        // Automatically credit the wallet on AutoPay setup success (mirror recharge-once).
+        Map<String, Object> walletCredit = null;
+        if (paymentStatus != null && !paymentStatus.trim().isEmpty()) {
+            String normalizedPaymentStatus = paymentStatus.trim().toUpperCase();
+            if (!("SUCCESS".equals(normalizedPaymentStatus) || "PENDING".equals(normalizedPaymentStatus)
+                    || "FAILED".equals(normalizedPaymentStatus))) {
+                throw new IllegalArgumentException("paymentStatus must be SUCCESS, PENDING or FAILED");
+            }
+            success = "SUCCESS".equals(normalizedPaymentStatus);
+            finalStatus = normalizedPaymentStatus;
+            status.put("forced_status", true);
+        } else {
+            status.put("forced_status", false);
+        }
+
+        if ("SUCCESS".equalsIgnoreCase(finalStatus)) {
+            walletCredit = dbUtil.applyWalletCredit(customerId, normalizedAmount, cashback,
+                    normalizedConfigId, DEFAULT_PAYMENT_METHOD, orderId);
+            result.put("wallet_balance_before", walletCredit.getOrDefault("old_wallet_balance", "0"));
+            result.put("updated_wallet_balance", walletCredit.get("new_wallet_balance"));
+        }
+        status.put("transaction_status", finalStatus);
+        result.put("forced_status", status.get("forced_status"));
+        result.put("wallet_credit", walletCredit);
+        return result;
+    }
+
     /* ---------- helpers ---------- */
+
+    /**
+     * AutoPay / smart-plan series (payment.md API-8-series).
+     *
+     * <p>Full series (mirrors the Recharge-Once series, but uses the AutoPay
+     * payment context):</p>
+     * <ol>
+     *   <li>resolve the customer auth token + countrydelight customer id for {@code phone};</li>
+     *   <li>{@code getSavedCardAndRecentPaymentsForCustomer} with {@code payment_source="2"}
+     *       (the AutoPay payment source — {@link #DEFAULT_PAYMENT_SOURCE}) — this returns the
+     *       saved cards / recent payments from which we extract the AutoPay cashback;</li>
+     *   <li>{@code wallet/autopay_offers} (API-8) with the chosen {@code config_id} + the
+     *       recharge {@code amount}, returning the smart-plan AutoPay offer payload
+     *       (incl. the autopay/plan id that maps to the wallet-side mandate);</li>
+     *   <li>on SUCCESS, also credit the wallet to mirror the Recharge-Once series.</li>
+     * </ol>
+     *
+     * @param phone          10-digit customer mobile number
+     * @param configId       the selected AutoPay config id (from {@link #getAutopayConfigs})
+     * @param rechargeAmount the amount to be set up for AutoPay recharge
+     * @return step-by-step series result incl. the autopay offer payload + wallet credit
+     */
+//    public Map<String, Object> setupAutopay(String phone, String configId, String rechargeAmount) throws Exception {
+//        return setupAutopay(phone, configId, rechargeAmount, null);
+//    }
+
+    /**
+     * Overload that lets the caller force the AutoPay transaction status for QA/Demo
+     * (mirrors the recharge-once forced-status behaviour).
+     *
+//     * @param  optional forced status (SUCCESS/PENDING/FAILED); null = poll real status.
+     */
+//    public Map<String, Object> setupAutopay(String phone, String configId, String rechargeAmount, String paymentStatus) throws Exception {
+//        if (phone == null || !phone.matches("\\d{10}")) {
+//            throw new IllegalArgumentException("Enter a valid 10-digit mobile number");
+//        }
+//        if (configId == null || configId.trim().isEmpty()) {
+//            throw new IllegalArgumentException("Select an AutoPay config");
+//        }
+//        String normalizedAmount = normalizeAmount(rechargeAmount);
+//        String normalizedConfigId = configId.trim();
+//
+//        String customerToken = resolveCustomerToken(phone);
+//        int customerId = resolveCustomerId(phone);
+//
+//        String normalizedPaymentStatus = null;
+//        if (paymentStatus != null && !paymentStatus.trim().isEmpty()) {
+//            normalizedPaymentStatus = paymentStatus.trim().toUpperCase();
+//            if (!("SUCCESS".equals(normalizedPaymentStatus) || "PENDING".equals(normalizedPaymentStatus)
+//                    || "FAILED".equals(normalizedPaymentStatus))) {
+//                throw new IllegalArgumentException("paymentStatus must be SUCCESS, PENDING or FAILED");
+//            }
+//        }
+//
+//        Map<String, Object> result = new HashMap<>();
+//        result.put("phone", phone);
+//        result.put("config_id", normalizedConfigId);
+//        result.put("amount", normalizedAmount);
+//
+//        // API-4: saved cards + recent payments, always via the AutoPay payment source "2".
+//        JsonNode savedCards = paymentApiClient.getSavedCardAndRecentPayments(customerToken, DEFAULT_PAYMENT_SOURCE);
+//        result.put("saved_card_response", savedCards);
+//        String cashback = extractCashback(savedCards);
+//        result.put("cashback", cashback);
+//
+//        // API-8: fetch the smart-plan AutoPay offers for the chosen config + amount.
+//        JsonNode autopayOffers = paymentApiClient.getAutopayOffers(customerToken, normalizedConfigId, normalizedAmount);
+//        result.put("autopay_offers", autopayOffers);
+//
+//        String orderId = autopayOffers.path("data").path("order_id").asText(
+//                autopayOffers.path("data").path("merchant_transaction_id").asText(""));
+//        result.put("order_id", orderId);
+//
+//        String statusMsg = autopayOffers.path("data").path("status").asText("");
+//        String finalStatus = statusMsg;
+//        boolean success = "SUCCESS".equalsIgnoreCase(finalStatus) || "SUCCESSFUL".equalsIgnoreCase(finalStatus)
+//                || "FINISHED".equalsIgnoreCase(finalStatus) || "COMPLETED".equalsIgnoreCase(finalStatus);
+//
+//        Map<String, Object> status = new HashMap<>();
+//        if (normalizedPaymentStatus != null) {
+//            // QA/Demo forced status — mirror the recharge series' direct DB write.
+//            int updated = dbUtil.updatePaymentRequestStatus(orderId, normalizedPaymentStatus, cashback, customerId,
+//                    normalizedAmount, "NB-DUMMY BANK");
+//            finalStatus = normalizedPaymentStatus;
+//            status.put("transaction_status", normalizedPaymentStatus);
+//            status.put("forced_status", true);
+//            status.put("payment_requests_rows_updated", updated);
+//        } else {
+//            status.put("transaction_status", finalStatus);
+//            status.put("forced_status", false);
+//        }
+//        result.putAll(status);
+//
+//        Map<String, Object> walletCredit = null;
+//        if (success) {
+//            walletCredit = dbUtil.applyWalletCredit(customerId, normalizedAmount, cashback,
+//                    normalizedConfigId, "NB-DUMMY BANK", orderId);
+//            result.put("wallet_balance_before", walletCredit.getOrDefault("old_wallet_balance", walletBeforeValue()));
+//            result.put("updated_wallet_balance", walletCredit.get("new_wallet_balance"));
+//        }
+//        result.put("wallet_credit", walletCredit);
+//
+//        return result;
+//    }
+
+    private String walletBeforeValue() {
+        return "0";
+    }
 
     private String resolveCustomerToken(String phone) throws Exception {
         Map<String, Object> customer = dbUtil.getCustomerIdByPhone(phone);
