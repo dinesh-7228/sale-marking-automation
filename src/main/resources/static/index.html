@@ -117,6 +117,27 @@
 
         code.api-path { background: #f1f5f9; border-radius: 4px; padding: 2px 6px; color: #6366f1; font-size: 12px; }
 
+        /* ===== Test case memory panels ===== */
+        .table-wrap { max-height: 68vh; overflow-y: auto; }
+        .table-wrap .loading { color: #94a3b8; font-size: 13px; padding: 18px 2px; }
+        .tc-section { margin-bottom: 22px; }
+        .tc-section h3 { font-size: 13px; color: #1e293b; margin: 16px 0 4px;
+                         text-transform: uppercase; letter-spacing: .04em; }
+        .tc-section .tc-base { font-size: 11px; color: #94a3b8; margin-bottom: 6px; }
+        .tc-section td code { font-size: 11px; color: #475569; }
+        .tc-copy { border: 1px solid #cbd5e1; background: #fff; color: #475569;
+                   border-radius: 5px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
+        .tc-copy:hover { background: #6366f1; border-color: #6366f1; color: #fff; }
+        .tc-badge { display: inline-block; border-radius: 4px; padding: 1px 7px;
+                    font-size: 11px; font-weight: 600; }
+        .tc-badge.pass     { background: #dcfce7; color: #15803d; }
+        .tc-badge.fail     { background: #fee2e2; color: #b91c1c; }
+        .tc-badge.suspect  { background: #fef3c7; color: #a16207; }
+        .tc-badge.blocked  { background: #e0e7ef; color: #475569; }
+        .tc-badge.notrun   { background: #e0e7ef; color: #64748b; }
+        .tc-badge.superseded { background: #ede9fe; color: #6d28d9; }
+        .tc-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #0f172a; }
+
         pre.json { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 8px; overflow-x: auto; font-size: 12px; margin-top: 10px; }
 
         /* ===== Forms ===== */
@@ -777,6 +798,35 @@
                     </div>
                 </section>
 
+                <!-- ============ TEST CASES (renders static/TEST_CASE_MEMORY.md) ============ -->
+                <section class="feature-panel" data-feature="test-cases">
+                    <div class="card">
+                        <h2>Test Cases</h2>
+                        <div class="subtitle">
+                            Generated test cases and their <strong>actual observed results</strong>, read
+                            from <code>static/TEST_CASE_MEMORY.md</code>. Use <em>Copy as curl</em> on any row
+                            to run it in a terminal. This panel is read-only; edit the markdown file to add cases.
+                        </div>
+                        <div id="testCasesBody" class="table-wrap">
+                            <div class="loading">Loading test case memory…</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ OPEN DEFECTS (same file, defects section) ============ -->
+                <section class="feature-panel" data-feature="open-defects">
+                    <div class="card">
+                        <h2>Open Defects</h2>
+                        <div class="subtitle">
+                            Defects found while generating and running the test cases. Sourced from the
+                            <code>Open defects found</code> section of the same memory file.
+                        </div>
+                        <div id="openDefectsBody" class="table-wrap">
+                            <div class="loading">Loading open defects…</div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- ============ FEATURE CONFIG ============ -->
                 <section class="feature-panel" data-feature="feature-config">
                     <div class="card">
@@ -847,6 +897,8 @@
             { id: 'nd-reasons',        label: 'ND Reasons',        icon: '📋', group: 'Main' },
             { id: 'route-sheet',       label: 'Route Sheet',       icon: '🚚', group: 'Main' },
             { id: 'settings',          label: 'Settings',          icon: '⚙️', group: 'Main' },
+            { id: 'test-cases',        label: 'Test Cases',        icon: '🧪', group: 'Main' },
+            { id: 'open-defects',      label: 'Open Defects',      icon: '🐞', group: 'Main' },
             { id: 'complaint-cleanup', label: 'Complaint Clean Up', icon: '🧹', group: 'Complaints' },
             { id: 'api-comparator',    label: 'API Comparator',    icon: '🔍', group: 'Comparator' },
             { id: 'feature-config',    label: 'Feature Config',    icon: '🧩', group: 'Complaints' },
@@ -870,6 +922,8 @@
             'nd-reasons':   () => loadNdReasonsPanel(),
             'route-sheet':  () => {},
             'settings':     () => loadSettingsPanel(),
+            'test-cases':   () => loadTestCasesPanel(),
+            'open-defects': () => loadOpenDefectsPanel(),
             'complaint-cleanup': () => renderComplaintDbList(),
             'feature-config':   () => renderFeatureConfigDbList(),
             'payment':          () => renderPaymentPanel(),
@@ -2315,6 +2369,212 @@
                     </table>`;
             } catch (error) {
                 infoEl.innerHTML = `<div class="alert alert-error">Failed to load settings: ${error.message}</div>`;
+            }
+        }
+
+        /* ================= TEST CASE MEMORY (reads static/TEST_CASE_MEMORY.md) =================
+           The markdown is ~95% pipe tables, so a small table parser beats pulling in a
+           markdown library - this file deliberately ships with zero external dependencies. */
+        const TC_MEMORY_URL = '/TEST_CASE_MEMORY.md';
+        const TC_BASE = 'http://localhost:6161';
+        let tcMarkdownCache = null;
+
+        async function loadTestCaseMemory(force) {
+            if (tcMarkdownCache && !force) return tcMarkdownCache;
+            const response = await fetch(TC_MEMORY_URL + '?t=' + Date.now());
+            if (!response.ok) throw new Error('HTTP ' + response.status + ' fetching ' + TC_MEMORY_URL);
+            tcMarkdownCache = await response.text();
+            return tcMarkdownCache;
+        }
+
+        /* Split one markdown table row into trimmed cells. */
+        function tcSplitRow(line) {
+            return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+        }
+
+        const tcIsDivider = cells => cells.every(c => /^:?-{2,}:?$/.test(c));
+
+        /* Inline code spans -> <code>, and **bold** -> <strong>. */
+        function tcInline(text) {
+            return escapeHtml(text)
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                .replace(/(^|\s)_([^_]+)_/g, '$1<em>$2</em>');
+        }
+
+        /* Result text -> coloured badge. Shapes seen in the file: "200 PASS",
+           "200, list returned PASS", "**200 `x` - FAIL**", bare "NOTRUN". */
+        function tcResultCell(text) {
+            const clean = text.replace(/[*`]/g, '').trim();
+            const m = clean.match(/^(?:(\d{3})\b)?\s*(.*?)\b(PASS|FAIL|BLOCKED|NOTRUN|SUPERSEDED)\b/i);
+            if (!m) return tcInline(text);
+            const code = m[1] || '';
+            const state = m[3].toUpperCase();
+            const cls = state === 'PASS' ? 'pass'
+                : state === 'SUPERSEDED' ? 'superseded'
+                : state === 'NOTRUN' || state === 'BLOCKED' ? 'notrun'
+                : 'fail';
+            const codeBadge = code ? ` <span class="tc-badge ${state === 'PASS' ? 'pass' : 'blocked'}">${code}</span>` : '';
+            return `<span class="tc-badge ${cls}">${state}</span>${codeBadge}`;
+        }
+
+        /* The "Request" column holds a curl-ish snippet; offer it as a copyable command. */
+        function tcCurlFor(requestText) {
+            const cmd = requestText.replace(/`/g, '').trim();
+            if (!cmd) return '';
+            return tcInline(cmd);
+        }
+
+        function tcCopyButton(requestText) {
+            const cmd = requestText.replace(/`/g, '').trim();
+            if (!cmd) return '<span style="color:#94a3b8;font-size:11px;">—</span>';
+            return `<button class="tc-copy" data-cmd="${escapeHtml(cmd)}">Copy as curl</button>`;
+        }
+
+        function copyTextFallback(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) { /* clipboard unavailable */ }
+            document.body.removeChild(ta);
+        }
+
+        /* Delegate clicks on the rendered tables - panels are re-rendered on every visit. */
+        function tcWireCopyButtons(container) {
+            container.querySelectorAll('.tc-copy').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const cmd = btn.getAttribute('data-cmd');
+                    const full = cmd.startsWith('curl') ? cmd : 'curl -u admin:YOUR_PASSWORD ' + cmd;
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(full).catch(() => copyTextFallback(full));
+                    } else {
+                        copyTextFallback(full);
+                    }
+                    const original = btn.textContent;
+                    btn.textContent = 'Copied ✓';
+                    setTimeout(() => { btn.textContent = original; }, 1200);
+                });
+            });
+        }
+
+        async function loadTestCasesPanel() {
+            const body = document.getElementById('testCasesBody');
+            if (!body) return;
+            try {
+                const md = await loadTestCaseMemory();
+                const lines = md.split('\n');
+                let html = '';
+                let currentSection = null;
+                let inSummary = false;
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (line.startsWith('# ') || line.startsWith('### ')) continue;   // H1 title / H3 subhead
+                    if (line.startsWith('## ')) {
+                        const title = line.slice(3).trim();
+                        if (/result legend|protocol|setup|known gaps|endpoint parameter/i.test(title)) {
+                            currentSection = null;                              // not a case table
+                            continue;
+                        }
+                        currentSection = title;
+                        inSummary = /coverage summary/i.test(title);
+                        html += `<div class="tc-section"><h3>${escapeHtml(title)}</h3>`;
+                        continue;
+                    }
+                    if (!line.trim().startsWith('|')) continue;
+
+                    const cells = tcSplitRow(line);
+                    if (tcIsDivider(cells)) continue;                            // |---|---|
+
+                    if (!currentSection) { html += '</div>'; continue; }
+
+                    const isHeader = /^\s*\|?\s*ID\s*\|/i.test(line);
+                    if (isHeader) {
+                        const hasRequest = cells.some(c => /request/i.test(c));
+                        html += '<table class="apitable"><thead><tr>'
+                            + cells.map((c, ci) => `<th>${tcInline(c)}${hasRequest && ci === 1 ? '' : ''}</th>`).join('')
+                            + (hasRequest ? '<th>Curl</th>' : '')
+                            + '</tr></thead><tbody>';
+                        continue;
+                    }
+
+                    /* Trailing empty cell comes from the row's closing pipe; drop it. */
+                    while (cells.length && cells[cells.length - 1] === '') cells.pop();
+
+                    /* Columns are: ID | Case | Request | Covers | Result. The result column
+                       may be absent in narrow tables, so locate headers rather than guess. */
+                    const resultIdx = cells.length - 1;
+                    const requestIdx = 2;
+                    const isCoverageTable = inSummary;
+
+                    if (isCoverageTable) {
+                        html += '</tbody></table>';
+                        html += '<table class="apitable"><tbody>'
+                            + cells.map((c, ci) => `<tr><td style="width:${ci === 0 ? 260 : 120}px;">${tcInline(c)}</td></tr>`).join('')
+                            + '</tbody></table>';
+                        continue;
+                    }
+
+                    const requestText = cells[requestIdx] || '';
+                    html += '<tr>'
+                        + cells.map((c, ci) => `<td>${ci === resultIdx ? tcResultCell(c) : tcCurlFor(c)}</td>`).join('')
+                        + '<td>' + tcCopyButton(requestText) + '</td>'
+                        + '</tr>';
+                }
+                html += '</tbody></table></div>';
+
+                body.innerHTML = html || '<div class="loading">No test cases found in the memory file.</div>';
+                tcWireCopyButtons(body);
+            } catch (error) {
+                body.innerHTML = `<div class="alert alert-error">Failed to load test case memory: ${escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        async function loadOpenDefectsPanel() {
+            const body = document.getElementById('openDefectsBody');
+            if (!body) return;
+            try {
+                const md = await loadTestCaseMemory();
+                const start = md.indexOf('## Open defects found');
+                if (start < 0) {
+                    body.innerHTML = '<div class="loading">No "Open defects found" section in the memory file.</div>';
+                    return;
+                }
+                const rest = md.slice(start);
+                const end = rest.indexOf('\n## ', 4);
+                const section = end > 0 ? rest.slice(0, end) : rest;
+
+                const lines = section.split('\n');
+                let html = '';
+                let inList = false;
+
+                for (const line of lines) {
+                    if (line.startsWith('#')) continue;
+                    if (/^\s*\|/.test(line)) {
+                        const cells = tcSplitRow(line);
+                        if (tcIsDivider(cells)) continue;
+                        inList = false;
+                        continue;
+                    }
+                    const num = line.match(/^(\d+)\.\s+\*\*(.+?)\*\*\s*(.*)$/);
+                    if (num) {
+                        inList = true;
+                        html += '<div class="card" style="margin:10px 0;background:#fff7ed;border:1px solid #fed7aa;">'
+                              + '<div style="font-weight:600;color:#9a3412;">#' + escapeHtml(num[1]) + ' ' + tcInline(num[2]) + '</div>'
+                              + '<div style="font-size:13px;color:#475569;margin-top:6px;">' + tcInline(num[3]) + '</div></div>';
+                        continue;
+                    }
+                    if (inList && line.trim() && !line.trim().startsWith('|')) {
+                        html += '<div style="font-size:13px;color:#64748b;margin:4px 0 10px 14px;">' + tcInline(line.trim()) + '</div>';
+                    }
+                }
+
+                body.innerHTML = html || '<div class="loading">No defects listed yet.</div>';
+            } catch (error) {
+                body.innerHTML = `<div class="alert alert-error">Failed to load defects: ${escapeHtml(error.message)}</div>`;
             }
         }
 

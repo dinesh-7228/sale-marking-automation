@@ -5,6 +5,10 @@ Persistent record of generated test cases and their **actual observed results**.
 This file is the memory. Each session that generates test cases reads it first, generates only
 the cases that are missing, runs them, and appends the real result.
 
+**Location:** `src/main/resources/static/TEST_CASE_MEMORY.md`. It lives under `static/` so Spring
+Boot serves it directly at `/TEST_CASE_MEMORY.md` and the admin panel renders it without any
+backend endpoint. Edit it in place - the panel re-reads it on every visit.
+
 ## Setup
 
 - Base URL: `http://localhost:6161`
