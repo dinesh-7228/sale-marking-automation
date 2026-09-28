@@ -117,6 +117,22 @@
 
         code.api-path { background: #f1f5f9; border-radius: 4px; padding: 2px 6px; color: #6366f1; font-size: 12px; }
 
+        /* ===== Feature config: unsaved-edit highlight =====
+           A dirty row stays highlighted until its own Save succeeds, so a value
+           that was typed but not written to the DB is impossible to miss. */
+        #fcResult tr.fc-dirty { background: #fffbeb; }
+        #fcResult tr.fc-dirty td { border-bottom-color: #fcd34d; }
+        #fcResult tr.fc-dirty td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+        #fcResult tr.fc-dirty input.fc-rule-value { background: #fff7ed; border-color: #f59e0b; font-weight: 600; }
+        #fcResult tr.fc-saved { background: #f0fdf4; }
+        #fcResult tr.fc-saved td:first-child { box-shadow: inset 3px 0 0 #22c55e; }
+        .fc-dirty-badge { display: inline-block; background: #f59e0b; color: #fff; border-radius: 4px;
+                          padding: 1px 6px; font-size: 10px; font-weight: 700; margin-left: 6px;
+                          vertical-align: middle; letter-spacing: .03em; }
+        .fc-dirty-count { display: inline-block; background: #f59e0b; color: #fff; border-radius: 10px;
+                          padding: 1px 9px; font-size: 11px; font-weight: 700; }
+        .fc-dirty-count.none { background: #22c55e; }
+
         /* ===== Test case memory panels ===== */
         .table-wrap { max-height: 68vh; overflow-y: auto; }
         .table-wrap .loading { color: #94a3b8; font-size: 13px; padding: 18px 2px; }
@@ -843,8 +859,13 @@
                             <div id="fcDbList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;"></div>
                         </div>
 
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <span id="fcDirtyCount" class="fc-dirty-count none">No unsaved edits</span>
+                            <span style="font-size:12px; color:#94a3b8;">Amber rows are edited but not yet saved.</span>
+                        </div>
+
                         <div class="form-row">
-                            <button class="btn btn-secondary" onclick="renderFeatureConfigDbList()">Reset Selection</button>
+                            <button class="btn btn-secondary" onclick="resetFeatureConfigSelection()">Reset Selection</button>
                             <button class="btn btn-primary" onclick="fetchFeatureConfig()">Fetch Config</button>
                         </div>
 
@@ -3026,6 +3047,43 @@
         });
 
         /* ================= FEATURE CONFIG (app_feature_config) ================= */
+
+        /* Dirty tracking: key is database|rowId|field|ruleIndex|key so each cell is
+           individually savable, and a re-render can tell "unchanged" from "edited". */
+        const fcDirty = new Map();
+        const fcKey = (database, rowId, field, ruleIndex, key) =>
+            [database, rowId, field, ruleIndex, key].join('|');
+
+        function fcRefreshDirtyCount() {
+            const el = document.getElementById('fcDirtyCount');
+            if (!el) return;
+            const n = fcDirty.size;
+            el.textContent = n ? `${n} unsaved edit${n === 1 ? '' : 's'}` : 'No unsaved edits';
+            el.className = 'fc-dirty-count' + (n ? '' : ' none');
+        }
+
+        function fcMarkDirty(input) {
+            const meta = input.getAttribute('data-fc-meta');
+            if (!meta) return;
+            const original = input.getAttribute('data-fc-original') || '';
+            const row = input.closest('tr');
+            if (input.value === original) {
+                fcDirty.delete(meta);
+                if (row) row.classList.remove('fc-dirty');
+            } else {
+                fcDirty.set(meta, input.value);
+                if (row) row.classList.add('fc-dirty');
+            }
+            fcRefreshDirtyCount();
+        }
+
+        function fcClearDirty(meta) {
+            fcDirty.delete(meta);
+            fcRefreshDirtyCount();
+        }
+
+        function fcHasUnsavedEdits() { return fcDirty.size > 0; }
+
         const FC_DATABASES = [
             { database: 'complaintmanagement_QA', env: 'QA' },
             { database: 'complaintmanagement_UAT', env: 'UAT' }
@@ -3080,11 +3138,24 @@
             if (modal) modal.style.display = 'none';
         }
 
+        /* Reset Selection wipes the grid, so it must not silently drop pending edits. */
+        function resetFeatureConfigSelection() {
+            if (fcHasUnsavedEdits() && !confirm(`${fcDirty.size} unsaved edit(s) will be lost. Continue?`)) return;
+            fcDirty.clear();
+            fcRefreshDirtyCount();
+            renderFeatureConfigDbList();
+        }
+
         async function fetchFeatureConfig() {
             const databases = Array.from(document.querySelectorAll('#fcDbList input[type="checkbox"]:checked'))
                 .map(cb => cb.value)
                 .filter(v => v && v !== 'undefined');
             if (databases.length === 0) { showAlert('Select at least one database', 'error'); return; }
+            if (fcHasUnsavedEdits()) {
+                if (!confirm(`${fcDirty.size} unsaved edit(s) will be replaced by fresh data. Continue?`)) return;
+                fcDirty.clear();   // confirmed replacement: pending edits no longer apply
+                fcRefreshDirtyCount();
+            }
 
             showLoading(`Fetching app_feature_config from ${databases.length} database(s)...`);
             try {
@@ -3124,6 +3195,7 @@
             if (!result) return;
             fcLastResult = dbResults;
             window.__fcFetchCache = dbResults || [];
+            fcRefreshDirtyCount();
             if (!dbResults || dbResults.length === 0) { result.innerHTML = '<div class="alert alert-info">No rows found.</div>'; return; }
 
             let html = '';
@@ -3164,7 +3236,7 @@
                                 html += `<tr>
                                     <td class="rule-idx">[${ri}]</td>
                                     <td><code>${key}</code></td>
-                                    <td><input class="fc-rule-value" data-fc-value="${key}" value="${escapeHtml(value)}" style="width:100%;"></td>
+                                    <td><input class="fc-rule-value" data-fc-value="${key}" data-fc-meta="${fcKey(db.database, row.id, 'ELIGIBILITY', ri, key)}" data-fc-original="${escapeHtml(value)}" oninput="fcMarkDirty(this)" value="${escapeHtml(value)}" style="width:100%;"></td>
                                     <td><button class="btn btn-primary btn-sm" onclick="updateFeatureConfigKey('${db.database}',${row.id},'ELIGIBILITY',${ri},'${key}',this)">Save</button></td>
                                 </tr>`;
                             }
@@ -3178,7 +3250,7 @@
                         for (const k of Object.keys(row.formData)) {
                             html += `<tr>
                                 <td><code>${k}</code></td>
-                                <td><input class="fc-rule-value" data-fc-value="${k}" value="${escapeHtml(JSON.stringify(row.formData[k]))}" style="width:100%;"></td>
+                                <td><input class="fc-rule-value" data-fc-value="${k}" data-fc-meta="${fcKey(db.database, row.id, 'FORM_DATA', -1, k)}" data-fc-original="${escapeHtml(JSON.stringify(row.formData[k]))}" oninput="fcMarkDirty(this)" value="${escapeHtml(JSON.stringify(row.formData[k]))}" style="width:100%;"></td>
                                 <td><button class="btn btn-primary btn-sm" onclick="updateFeatureConfigKey('${db.database}',${row.id},'FORM_DATA',-1,'${k}',this)">Save</button></td>
                             </tr>`;
                         }
@@ -3211,16 +3283,44 @@
                     showAlert(data.message || 'Update failed', 'error');
                     return;
                 }
-                // Refresh the whole grid so it reflects the authoritative DB value.
-                const box = document.querySelector('#fcDbList input[type="checkbox"]:checked');
-                if (box) {
-                    const checked = Array.from(document.querySelectorAll('#fcDbList input[type="checkbox"]:checked')).map(c=>c.value);
-                    renderFeatureConfigResult(await refetchFeatureConfig(checked));
+                // This cell is now persisted, so drop it from the dirty set and clear its
+                // highlight immediately - the save succeeded, so the edit is no longer pending.
+                fcClearDirty(fcKey(database, rowId, field, ruleIndex, key));
+                if (input) input.setAttribute('data-fc-original', value);
+                if (row) { row.classList.remove('fc-dirty'); row.classList.add('fc-saved'); }
+
+                // Refresh the grid so it reflects the authoritative DB value. This is
+                // best-effort: the highlight above must not depend on the refetch running.
+                const checked = Array.from(
+                    document.querySelectorAll('#fcDbList input[type="checkbox"]:checked')
+                ).map(c => c.value);
+                if (checked.length) {
+                    const fresh = await refetchFeatureConfig(checked);
+                    if (fresh) {
+                        renderFeatureConfigResult(fresh);
+                        fcReapplyDirty();
+                    } else {
+                        fcReapplyDirty();   // keep other pending edits visible in place
+                    }
                 }
             } catch (e) {
                 hideLoading();
                 showAlert('Update error: ' + e.message, 'error');
             }
+        }
+
+        /* Re-apply unsaved edits to freshly rendered inputs. Without this, saving one
+           field rebuilds the grid and silently discards every other pending edit. */
+        function fcReapplyDirty() {
+            if (fcDirty.size === 0) return;
+            document.querySelectorAll('#fcResult input.fc-rule-value').forEach(input => {
+                const meta = input.getAttribute('data-fc-meta');
+                if (!meta || !fcDirty.has(meta)) return;
+                input.value = fcDirty.get(meta);
+                const row = input.closest('tr');
+                if (row) row.classList.add('fc-dirty');
+            });
+            fcRefreshDirtyCount();
         }
 
         async function refetchFeatureConfig(databases) {
@@ -3234,6 +3334,13 @@
                 return data.success ? data.data : null;
             } catch (e) { return null; }
         }
+
+        /* Closing the tab with pending edits would lose them silently. */
+        window.addEventListener('beforeunload', (e) => {
+            if (!fcHasUnsavedEdits()) return;
+            e.preventDefault();
+            e.returnValue = '';
+        });
 
     </script>
 </body>
