@@ -12,6 +12,10 @@ export DB_NAME="beejapuri_QA"  # Database schema is selected automatically by en
 export DB_USER="dinesh"
 export DB_PASSWORD="pjq4gry4ir6QSGh"
 
+# Admin panel access (Basic auth). Both must be non-blank or the app returns 503.
+export ADMIN_ACCESS_USERNAME="${ADMIN_ACCESS_USERNAME:-admin}"
+export ADMIN_ACCESS_PASSWORD="${ADMIN_ACCESS_PASSWORD:-admin123}"
+
 echo ""
 echo "Environment Variables Set:"
 echo "  DB_HOST: $DB_HOST"

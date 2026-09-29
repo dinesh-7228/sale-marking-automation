@@ -19,11 +19,13 @@ com/countrydelight/api/MockApiClient.class
 com/countrydelight/controller/ComplaintController.class
 com/countrydelight/config/WebConfig.class
 com/countrydelight/controller/ProductController.class
+com/countrydelight/controller/HealthController.class
 com/countrydelight/controller/MembershipCustomerRemovalController.class
 com/countrydelight/controller/InteractiveWorkflowController.class
 com/countrydelight/controller/BaseCustomerRemovalController.class
 com/countrydelight/model/WorkflowRequest.class
 com/countrydelight/service/AutopayCustomerRemovalService.class
+com/countrydelight/config/AdminAccessFilter.class
 com/countrydelight/controller/AutopayCustomerRemovalController.class
 com/countrydelight/service/RapidSaleMarkingService.class
 com/countrydelight/controller/CustomerController.class

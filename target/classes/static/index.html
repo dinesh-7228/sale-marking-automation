@@ -117,6 +117,43 @@
 
         code.api-path { background: #f1f5f9; border-radius: 4px; padding: 2px 6px; color: #6366f1; font-size: 12px; }
 
+        /* ===== Feature config: unsaved-edit highlight =====
+           A dirty row stays highlighted until its own Save succeeds, so a value
+           that was typed but not written to the DB is impossible to miss. */
+        #fcResult tr.fc-dirty { background: #fffbeb; }
+        #fcResult tr.fc-dirty td { border-bottom-color: #fcd34d; }
+        #fcResult tr.fc-dirty td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+        #fcResult tr.fc-dirty input.fc-rule-value { background: #fff7ed; border-color: #f59e0b; font-weight: 600; }
+        #fcResult tr.fc-saved { background: #f0fdf4; }
+        #fcResult tr.fc-saved td:first-child { box-shadow: inset 3px 0 0 #22c55e; }
+        .fc-dirty-badge { display: inline-block; background: #f59e0b; color: #fff; border-radius: 4px;
+                          padding: 1px 6px; font-size: 10px; font-weight: 700; margin-left: 6px;
+                          vertical-align: middle; letter-spacing: .03em; }
+        .fc-dirty-count { display: inline-block; background: #f59e0b; color: #fff; border-radius: 10px;
+                          padding: 1px 9px; font-size: 11px; font-weight: 700; }
+        .fc-dirty-count.none { background: #22c55e; }
+
+        /* ===== Test case memory panels ===== */
+        .table-wrap { max-height: 68vh; overflow-y: auto; }
+        .table-wrap .loading { color: #94a3b8; font-size: 13px; padding: 18px 2px; }
+        .tc-section { margin-bottom: 22px; }
+        .tc-section h3 { font-size: 13px; color: #1e293b; margin: 16px 0 4px;
+                         text-transform: uppercase; letter-spacing: .04em; }
+        .tc-section .tc-base { font-size: 11px; color: #94a3b8; margin-bottom: 6px; }
+        .tc-section td code { font-size: 11px; color: #475569; }
+        .tc-copy { border: 1px solid #cbd5e1; background: #fff; color: #475569;
+                   border-radius: 5px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
+        .tc-copy:hover { background: #6366f1; border-color: #6366f1; color: #fff; }
+        .tc-badge { display: inline-block; border-radius: 4px; padding: 1px 7px;
+                    font-size: 11px; font-weight: 600; }
+        .tc-badge.pass     { background: #dcfce7; color: #15803d; }
+        .tc-badge.fail     { background: #fee2e2; color: #b91c1c; }
+        .tc-badge.suspect  { background: #fef3c7; color: #a16207; }
+        .tc-badge.blocked  { background: #e0e7ef; color: #475569; }
+        .tc-badge.notrun   { background: #e0e7ef; color: #64748b; }
+        .tc-badge.superseded { background: #ede9fe; color: #6d28d9; }
+        .tc-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: #0f172a; }
+
         pre.json { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 8px; overflow-x: auto; font-size: 12px; margin-top: 10px; }
 
         /* ===== Forms ===== */
@@ -777,6 +814,35 @@
                     </div>
                 </section>
 
+                <!-- ============ TEST CASES (renders static/TEST_CASE_MEMORY.md) ============ -->
+                <section class="feature-panel" data-feature="test-cases">
+                    <div class="card">
+                        <h2>Test Cases</h2>
+                        <div class="subtitle">
+                            Generated test cases and their <strong>actual observed results</strong>, read
+                            from <code>static/TEST_CASE_MEMORY.md</code>. Use <em>Copy as curl</em> on any row
+                            to run it in a terminal. This panel is read-only; edit the markdown file to add cases.
+                        </div>
+                        <div id="testCasesBody" class="table-wrap">
+                            <div class="loading">Loading test case memory…</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ============ OPEN DEFECTS (same file, defects section) ============ -->
+                <section class="feature-panel" data-feature="open-defects">
+                    <div class="card">
+                        <h2>Open Defects</h2>
+                        <div class="subtitle">
+                            Defects found while generating and running the test cases. Sourced from the
+                            <code>Open defects found</code> section of the same memory file.
+                        </div>
+                        <div id="openDefectsBody" class="table-wrap">
+                            <div class="loading">Loading open defects…</div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- ============ FEATURE CONFIG ============ -->
                 <section class="feature-panel" data-feature="feature-config">
                     <div class="card">
@@ -793,8 +859,13 @@
                             <div id="fcDbList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;"></div>
                         </div>
 
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <span id="fcDirtyCount" class="fc-dirty-count none">No unsaved edits</span>
+                            <span style="font-size:12px; color:#94a3b8;">Amber rows are edited but not yet saved.</span>
+                        </div>
+
                         <div class="form-row">
-                            <button class="btn btn-secondary" onclick="renderFeatureConfigDbList()">Reset Selection</button>
+                            <button class="btn btn-secondary" onclick="resetFeatureConfigSelection()">Reset Selection</button>
                             <button class="btn btn-primary" onclick="fetchFeatureConfig()">Fetch Config</button>
                         </div>
 
@@ -847,6 +918,8 @@
             { id: 'nd-reasons',        label: 'ND Reasons',        icon: '📋', group: 'Main' },
             { id: 'route-sheet',       label: 'Route Sheet',       icon: '🚚', group: 'Main' },
             { id: 'settings',          label: 'Settings',          icon: '⚙️', group: 'Main' },
+            { id: 'test-cases',        label: 'Test Cases',        icon: '🧪', group: 'Main' },
+            { id: 'open-defects',      label: 'Open Defects',      icon: '🐞', group: 'Main' },
             { id: 'complaint-cleanup', label: 'Complaint Clean Up', icon: '🧹', group: 'Complaints' },
             { id: 'api-comparator',    label: 'API Comparator',    icon: '🔍', group: 'Comparator' },
             { id: 'feature-config',    label: 'Feature Config',    icon: '🧩', group: 'Complaints' },
@@ -870,6 +943,8 @@
             'nd-reasons':   () => loadNdReasonsPanel(),
             'route-sheet':  () => {},
             'settings':     () => loadSettingsPanel(),
+            'test-cases':   () => loadTestCasesPanel(),
+            'open-defects': () => loadOpenDefectsPanel(),
             'complaint-cleanup': () => renderComplaintDbList(),
             'feature-config':   () => renderFeatureConfigDbList(),
             'payment':          () => renderPaymentPanel(),
@@ -2318,6 +2393,212 @@
             }
         }
 
+        /* ================= TEST CASE MEMORY (reads static/TEST_CASE_MEMORY.md) =================
+           The markdown is ~95% pipe tables, so a small table parser beats pulling in a
+           markdown library - this file deliberately ships with zero external dependencies. */
+        const TC_MEMORY_URL = '/TEST_CASE_MEMORY.md';
+        const TC_BASE = 'http://localhost:6161';
+        let tcMarkdownCache = null;
+
+        async function loadTestCaseMemory(force) {
+            if (tcMarkdownCache && !force) return tcMarkdownCache;
+            const response = await fetch(TC_MEMORY_URL + '?t=' + Date.now());
+            if (!response.ok) throw new Error('HTTP ' + response.status + ' fetching ' + TC_MEMORY_URL);
+            tcMarkdownCache = await response.text();
+            return tcMarkdownCache;
+        }
+
+        /* Split one markdown table row into trimmed cells. */
+        function tcSplitRow(line) {
+            return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(c => c.trim());
+        }
+
+        const tcIsDivider = cells => cells.every(c => /^:?-{2,}:?$/.test(c));
+
+        /* Inline code spans -> <code>, and **bold** -> <strong>. */
+        function tcInline(text) {
+            return escapeHtml(text)
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                .replace(/(^|\s)_([^_]+)_/g, '$1<em>$2</em>');
+        }
+
+        /* Result text -> coloured badge. Shapes seen in the file: "200 PASS",
+           "200, list returned PASS", "**200 `x` - FAIL**", bare "NOTRUN". */
+        function tcResultCell(text) {
+            const clean = text.replace(/[*`]/g, '').trim();
+            const m = clean.match(/^(?:(\d{3})\b)?\s*(.*?)\b(PASS|FAIL|BLOCKED|NOTRUN|SUPERSEDED)\b/i);
+            if (!m) return tcInline(text);
+            const code = m[1] || '';
+            const state = m[3].toUpperCase();
+            const cls = state === 'PASS' ? 'pass'
+                : state === 'SUPERSEDED' ? 'superseded'
+                : state === 'NOTRUN' || state === 'BLOCKED' ? 'notrun'
+                : 'fail';
+            const codeBadge = code ? ` <span class="tc-badge ${state === 'PASS' ? 'pass' : 'blocked'}">${code}</span>` : '';
+            return `<span class="tc-badge ${cls}">${state}</span>${codeBadge}`;
+        }
+
+        /* The "Request" column holds a curl-ish snippet; offer it as a copyable command. */
+        function tcCurlFor(requestText) {
+            const cmd = requestText.replace(/`/g, '').trim();
+            if (!cmd) return '';
+            return tcInline(cmd);
+        }
+
+        function tcCopyButton(requestText) {
+            const cmd = requestText.replace(/`/g, '').trim();
+            if (!cmd) return '<span style="color:#94a3b8;font-size:11px;">—</span>';
+            return `<button class="tc-copy" data-cmd="${escapeHtml(cmd)}">Copy as curl</button>`;
+        }
+
+        function copyTextFallback(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) { /* clipboard unavailable */ }
+            document.body.removeChild(ta);
+        }
+
+        /* Delegate clicks on the rendered tables - panels are re-rendered on every visit. */
+        function tcWireCopyButtons(container) {
+            container.querySelectorAll('.tc-copy').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const cmd = btn.getAttribute('data-cmd');
+                    const full = cmd.startsWith('curl') ? cmd : 'curl -u admin:YOUR_PASSWORD ' + cmd;
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(full).catch(() => copyTextFallback(full));
+                    } else {
+                        copyTextFallback(full);
+                    }
+                    const original = btn.textContent;
+                    btn.textContent = 'Copied ✓';
+                    setTimeout(() => { btn.textContent = original; }, 1200);
+                });
+            });
+        }
+
+        async function loadTestCasesPanel() {
+            const body = document.getElementById('testCasesBody');
+            if (!body) return;
+            try {
+                const md = await loadTestCaseMemory();
+                const lines = md.split('\n');
+                let html = '';
+                let currentSection = null;
+                let inSummary = false;
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (line.startsWith('# ') || line.startsWith('### ')) continue;   // H1 title / H3 subhead
+                    if (line.startsWith('## ')) {
+                        const title = line.slice(3).trim();
+                        if (/result legend|protocol|setup|known gaps|endpoint parameter/i.test(title)) {
+                            currentSection = null;                              // not a case table
+                            continue;
+                        }
+                        currentSection = title;
+                        inSummary = /coverage summary/i.test(title);
+                        html += `<div class="tc-section"><h3>${escapeHtml(title)}</h3>`;
+                        continue;
+                    }
+                    if (!line.trim().startsWith('|')) continue;
+
+                    const cells = tcSplitRow(line);
+                    if (tcIsDivider(cells)) continue;                            // |---|---|
+
+                    if (!currentSection) { html += '</div>'; continue; }
+
+                    const isHeader = /^\s*\|?\s*ID\s*\|/i.test(line);
+                    if (isHeader) {
+                        const hasRequest = cells.some(c => /request/i.test(c));
+                        html += '<table class="apitable"><thead><tr>'
+                            + cells.map((c, ci) => `<th>${tcInline(c)}${hasRequest && ci === 1 ? '' : ''}</th>`).join('')
+                            + (hasRequest ? '<th>Curl</th>' : '')
+                            + '</tr></thead><tbody>';
+                        continue;
+                    }
+
+                    /* Trailing empty cell comes from the row's closing pipe; drop it. */
+                    while (cells.length && cells[cells.length - 1] === '') cells.pop();
+
+                    /* Columns are: ID | Case | Request | Covers | Result. The result column
+                       may be absent in narrow tables, so locate headers rather than guess. */
+                    const resultIdx = cells.length - 1;
+                    const requestIdx = 2;
+                    const isCoverageTable = inSummary;
+
+                    if (isCoverageTable) {
+                        html += '</tbody></table>';
+                        html += '<table class="apitable"><tbody>'
+                            + cells.map((c, ci) => `<tr><td style="width:${ci === 0 ? 260 : 120}px;">${tcInline(c)}</td></tr>`).join('')
+                            + '</tbody></table>';
+                        continue;
+                    }
+
+                    const requestText = cells[requestIdx] || '';
+                    html += '<tr>'
+                        + cells.map((c, ci) => `<td>${ci === resultIdx ? tcResultCell(c) : tcCurlFor(c)}</td>`).join('')
+                        + '<td>' + tcCopyButton(requestText) + '</td>'
+                        + '</tr>';
+                }
+                html += '</tbody></table></div>';
+
+                body.innerHTML = html || '<div class="loading">No test cases found in the memory file.</div>';
+                tcWireCopyButtons(body);
+            } catch (error) {
+                body.innerHTML = `<div class="alert alert-error">Failed to load test case memory: ${escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        async function loadOpenDefectsPanel() {
+            const body = document.getElementById('openDefectsBody');
+            if (!body) return;
+            try {
+                const md = await loadTestCaseMemory();
+                const start = md.indexOf('## Open defects found');
+                if (start < 0) {
+                    body.innerHTML = '<div class="loading">No "Open defects found" section in the memory file.</div>';
+                    return;
+                }
+                const rest = md.slice(start);
+                const end = rest.indexOf('\n## ', 4);
+                const section = end > 0 ? rest.slice(0, end) : rest;
+
+                const lines = section.split('\n');
+                let html = '';
+                let inList = false;
+
+                for (const line of lines) {
+                    if (line.startsWith('#')) continue;
+                    if (/^\s*\|/.test(line)) {
+                        const cells = tcSplitRow(line);
+                        if (tcIsDivider(cells)) continue;
+                        inList = false;
+                        continue;
+                    }
+                    const num = line.match(/^(\d+)\.\s+\*\*(.+?)\*\*\s*(.*)$/);
+                    if (num) {
+                        inList = true;
+                        html += '<div class="card" style="margin:10px 0;background:#fff7ed;border:1px solid #fed7aa;">'
+                              + '<div style="font-weight:600;color:#9a3412;">#' + escapeHtml(num[1]) + ' ' + tcInline(num[2]) + '</div>'
+                              + '<div style="font-size:13px;color:#475569;margin-top:6px;">' + tcInline(num[3]) + '</div></div>';
+                        continue;
+                    }
+                    if (inList && line.trim() && !line.trim().startsWith('|')) {
+                        html += '<div style="font-size:13px;color:#64748b;margin:4px 0 10px 14px;">' + tcInline(line.trim()) + '</div>';
+                    }
+                }
+
+                body.innerHTML = html || '<div class="loading">No defects listed yet.</div>';
+            } catch (error) {
+                body.innerHTML = `<div class="alert alert-error">Failed to load defects: ${escapeHtml(error.message)}</div>`;
+            }
+        }
+
         /* ================= COMPLAINT CLEAN UP FEATURE ================= */
         const COMPLAINT_DATABASES = [
             'complaintmanagement_QA', 'complaintmanagement_UAT',
@@ -2766,9 +3047,48 @@
         });
 
         /* ================= FEATURE CONFIG (app_feature_config) ================= */
+
+        /* Dirty tracking: key is database|rowId|field|ruleIndex|key so each cell is
+           individually savable, and a re-render can tell "unchanged" from "edited". */
+        const fcDirty = new Map();
+        const fcKey = (database, rowId, field, ruleIndex, key) =>
+            [database, rowId, field, ruleIndex, key].join('|');
+
+        function fcRefreshDirtyCount() {
+            const el = document.getElementById('fcDirtyCount');
+            if (!el) return;
+            const n = fcDirty.size;
+            el.textContent = n ? `${n} unsaved edit${n === 1 ? '' : 's'}` : 'No unsaved edits';
+            el.className = 'fc-dirty-count' + (n ? '' : ' none');
+        }
+
+        function fcMarkDirty(input) {
+            const meta = input.getAttribute('data-fc-meta');
+            if (!meta) return;
+            const original = input.getAttribute('data-fc-original') || '';
+            const row = input.closest('tr');
+            if (input.value === original) {
+                fcDirty.delete(meta);
+                if (row) row.classList.remove('fc-dirty');
+            } else {
+                fcDirty.set(meta, input.value);
+                if (row) row.classList.add('fc-dirty');
+            }
+            fcRefreshDirtyCount();
+        }
+
+        function fcClearDirty(meta) {
+            fcDirty.delete(meta);
+            fcRefreshDirtyCount();
+        }
+
+        function fcHasUnsavedEdits() { return fcDirty.size > 0; }
+
         const FC_DATABASES = [
             { database: 'complaintmanagement_QA', env: 'QA' },
-            { database: 'complaintmanagement_UAT', env: 'UAT' }
+            { database: 'complaintmanagement_UAT', env: 'UAT' },
+            { database: 'beejapuri_QA', env: 'QA' },
+            { database: 'beejapuri_UAT', env: 'UAT' }
         ].filter(db => COMPLAINT_DATABASES.includes(db.database));
 
         function renderFeatureConfigDbList() {
@@ -2820,11 +3140,24 @@
             if (modal) modal.style.display = 'none';
         }
 
+        /* Reset Selection wipes the grid, so it must not silently drop pending edits. */
+        function resetFeatureConfigSelection() {
+            if (fcHasUnsavedEdits() && !confirm(`${fcDirty.size} unsaved edit(s) will be lost. Continue?`)) return;
+            fcDirty.clear();
+            fcRefreshDirtyCount();
+            renderFeatureConfigDbList();
+        }
+
         async function fetchFeatureConfig() {
             const databases = Array.from(document.querySelectorAll('#fcDbList input[type="checkbox"]:checked'))
                 .map(cb => cb.value)
                 .filter(v => v && v !== 'undefined');
             if (databases.length === 0) { showAlert('Select at least one database', 'error'); return; }
+            if (fcHasUnsavedEdits()) {
+                if (!confirm(`${fcDirty.size} unsaved edit(s) will be replaced by fresh data. Continue?`)) return;
+                fcDirty.clear();   // confirmed replacement: pending edits no longer apply
+                fcRefreshDirtyCount();
+            }
 
             showLoading(`Fetching app_feature_config from ${databases.length} database(s)...`);
             try {
@@ -2864,6 +3197,7 @@
             if (!result) return;
             fcLastResult = dbResults;
             window.__fcFetchCache = dbResults || [];
+            fcRefreshDirtyCount();
             if (!dbResults || dbResults.length === 0) { result.innerHTML = '<div class="alert alert-info">No rows found.</div>'; return; }
 
             let html = '';
@@ -2877,6 +3211,9 @@
                 for (const row of (db.rows || [])) {
                     const hiddenKey = db.database + '|' + row.id;
                     const isHidden = fcHiddenRows.has(hiddenKey);
+                    const rules = row.eligibility || [];
+                    const fields = row.eligibilityFields || {};
+                    const fieldKeys = Object.keys(fields);
                     html += `<div class="card" style="margin:10px 0; padding:12px; background:${isHidden?'#f1f5f9':'#f8fafc'};${isHidden?'opacity:.75':''}">
                         <div style="font-weight:600; margin-bottom:8px;">Row #${row.id} (TYPE ${row.type}, ENABLED ${row.enabled})
                             ${isHidden ? `<span style="color:#94a3b8; font-size:12px;">&mdash; hidden</span>` : ''}
@@ -2890,8 +3227,7 @@
                             <tbody>`;
 
                     if (!isHidden) {
-                        const rules = row.eligibility || [];
-                        if (rules.length === 0) {
+                        if (rules.length === 0 && fieldKeys.length === 0) {
                             html += `<tr><td colspan="4" style="color:#667;">No ELIGIBILITY rules</td></tr>`;
                         }
                         rules.forEach((rule, ri) => {
@@ -2904,7 +3240,7 @@
                                 html += `<tr>
                                     <td class="rule-idx">[${ri}]</td>
                                     <td><code>${key}</code></td>
-                                    <td><input class="fc-rule-value" data-fc-value="${key}" value="${escapeHtml(value)}" style="width:100%;"></td>
+                                    <td><input class="fc-rule-value" data-fc-value="${key}" data-fc-meta="${fcKey(db.database, row.id, 'ELIGIBILITY', ri, key)}" data-fc-original="${escapeHtml(value)}" oninput="fcMarkDirty(this)" value="${escapeHtml(value)}" style="width:100%;"></td>
                                     <td><button class="btn btn-primary btn-sm" onclick="updateFeatureConfigKey('${db.database}',${row.id},'ELIGIBILITY',${ri},'${key}',this)">Save</button></td>
                                 </tr>`;
                             }
@@ -2913,16 +3249,11 @@
                     } else {
                         html += `</tbody></table>`;
                     }
+                    if (fieldKeys.length) {
+                        html += fcFlatObjectRows(db.database, row.id, fields, 'ELIGIBILITY_FIELDS');
+                    }
                     if (row.formData && Object.keys(row.formData).length) {
-                        html += `<div class="subtitle" style="margin-top:8px;">FORM_DATA</div><table class="apitable" style="width:100%;"><tbody>`;
-                        for (const k of Object.keys(row.formData)) {
-                            html += `<tr>
-                                <td><code>${k}</code></td>
-                                <td><input class="fc-rule-value" data-fc-value="${k}" value="${escapeHtml(JSON.stringify(row.formData[k]))}" style="width:100%;"></td>
-                                <td><button class="btn btn-primary btn-sm" onclick="updateFeatureConfigKey('${db.database}',${row.id},'FORM_DATA',-1,'${k}',this)">Save</button></td>
-                            </tr>`;
-                        }
-                        html += `</tbody></table>`;
+                        html += fcFlatObjectRows(db.database, row.id, row.formData, 'FORM_DATA');
                     }
                     html += `</div>`;
                 }
@@ -2951,16 +3282,59 @@
                     showAlert(data.message || 'Update failed', 'error');
                     return;
                 }
-                // Refresh the whole grid so it reflects the authoritative DB value.
-                const box = document.querySelector('#fcDbList input[type="checkbox"]:checked');
-                if (box) {
-                    const checked = Array.from(document.querySelectorAll('#fcDbList input[type="checkbox"]:checked')).map(c=>c.value);
-                    renderFeatureConfigResult(await refetchFeatureConfig(checked));
+                // This cell is now persisted, so drop it from the dirty set and clear its
+                // highlight immediately - the save succeeded, so the edit is no longer pending.
+                fcClearDirty(fcKey(database, rowId, field, ruleIndex, key));
+                if (input) input.setAttribute('data-fc-original', value);
+                if (row) { row.classList.remove('fc-dirty'); row.classList.add('fc-saved'); }
+
+                // Refresh the grid so it reflects the authoritative DB value. This is
+                // best-effort: the highlight above must not depend on the refetch running.
+                const checked = Array.from(
+                    document.querySelectorAll('#fcDbList input[type="checkbox"]:checked')
+                ).map(c => c.value);
+                if (checked.length) {
+                    const fresh = await refetchFeatureConfig(checked);
+                    if (fresh) {
+                        renderFeatureConfigResult(fresh);
+                        fcReapplyDirty();
+                    } else {
+                        fcReapplyDirty();   // keep other pending edits visible in place
+                    }
                 }
             } catch (e) {
                 hideLoading();
                 showAlert('Update error: ' + e.message, 'error');
             }
+        }
+
+        /* Re-apply unsaved edits to freshly rendered inputs. Without this, saving one
+           field rebuilds the grid and silently discards every other pending edit. */
+        function fcReapplyDirty() {
+            if (fcDirty.size === 0) return;
+            document.querySelectorAll('#fcResult input.fc-rule-value').forEach(input => {
+                const meta = input.getAttribute('data-fc-meta');
+                if (!meta || !fcDirty.has(meta)) return;
+                input.value = fcDirty.get(meta);
+                const row = input.closest('tr');
+                if (row) row.classList.add('fc-dirty');
+            });
+            fcRefreshDirtyCount();
+        }
+
+        /* Renders a flat JSON object (FORM_DATA, or the top-level ELIGIBILITY settings
+           that are not the rules array) as one editable row per key. */
+        function fcFlatObjectRows(database, rowId, obj, field) {
+            let out = `<div class="subtitle" style="margin-top:8px;">${field}</div><table class="apitable" style="width:100%;"><tbody>`;
+            for (const k of Object.keys(obj)) {
+                const v = escapeHtml(JSON.stringify(obj[k]));
+                out += `<tr>
+                    <td><code>${k}</code></td>
+                    <td><input class="fc-rule-value" data-fc-value="${k}" data-fc-meta="${fcKey(database, rowId, field, -1, k)}" data-fc-original="${v}" oninput="fcMarkDirty(this)" value="${v}" style="width:100%;"></td>
+                    <td><button class="btn btn-primary btn-sm" onclick="updateFeatureConfigKey('${database}',${rowId},'${field}',-1,'${k}',this)">Save</button></td>
+                </tr>`;
+            }
+            return out + `</tbody></table>`;
         }
 
         async function refetchFeatureConfig(databases) {
@@ -2974,6 +3348,13 @@
                 return data.success ? data.data : null;
             } catch (e) { return null; }
         }
+
+        /* Closing the tab with pending edits would lose them silently. */
+        window.addEventListener('beforeunload', (e) => {
+            if (!fcHasUnsavedEdits()) return;
+            e.preventDefault();
+            e.returnValue = '';
+        });
 
     </script>
 </body>

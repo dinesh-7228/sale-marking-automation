@@ -482,7 +482,8 @@ public class PaymentService {
 //     * @param  optional forced status (SUCCESS/PENDING/FAILED); null = poll real status.
      */
 //    public Map<String, Object> setupAutopay(String phone, String configId, String rechargeAmount, String paymentStatus) throws Exception {
-//        if (phone == null || !phone.matches("\\d{10}")) {
+//        if (phone == null || !ph
+//        one.matches("\\d{10}")) {
 //            throw new IllegalArgumentException("Enter a valid 10-digit mobile number");
 //        }
 //        if (configId == null || configId.trim().isEmpty()) {
