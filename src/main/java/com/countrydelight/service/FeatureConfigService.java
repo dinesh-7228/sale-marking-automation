@@ -17,8 +17,9 @@ import java.util.*;
  * Feature Config (app_feature_config) editor.
  *
  * Reads/writes the `app_feature_config` table inside the
- * complaintmanagement_QA / complaintmanagement_UAT databases. The `ELIGIBILITY`
- * column holds a JSON array of rules, one per customer segment / priority.
+ * complaintmanagement_QA / complaintmanagement_UAT / beejapuri_QA / beejapuri_UAT
+ * databases. The `ELIGIBILITY` column holds a JSON array of rules, one per
+ * customer segment / priority.
  *
  * Editing is done at the granularity of a single key of a single rule: the UI
  * renders each JSON key as its own editable field)Skip, and updating one key
@@ -38,7 +39,8 @@ public class FeatureConfigService {
 
     private static List<Map<String, Object>> databases() {
         List<Map<String, Object>> list = new ArrayList<>();
-        for (String name : Arrays.asList("complaintmanagement_QA", "complaintmanagement_UAT")) {
+        for (String name : Arrays.asList("complaintmanagement_QA", "complaintmanagement_UAT",
+                                         "beejapuri_QA", "beejapuri_UAT")) {
             Map<String, Object> db = new HashMap<>();
             db.put("database", name);
             db.put("env", name.endsWith("_UAT") ? "UAT" : "QA");

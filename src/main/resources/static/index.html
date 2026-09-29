@@ -3086,7 +3086,9 @@
 
         const FC_DATABASES = [
             { database: 'complaintmanagement_QA', env: 'QA' },
-            { database: 'complaintmanagement_UAT', env: 'UAT' }
+            { database: 'complaintmanagement_UAT', env: 'UAT' },
+            { database: 'beejapuri_QA', env: 'QA' },
+            { database: 'beejapuri_UAT', env: 'UAT' }
         ].filter(db => COMPLAINT_DATABASES.includes(db.database));
 
         function renderFeatureConfigDbList() {
