@@ -81,6 +81,7 @@ public class FeatureConfigService {
                     row.put("type", rs.getObject("TYPE"));
                     row.put("enabled", rs.getBoolean("ENABLED"));
                     row.put("eligibility", parseJsonArray(rs.getString("ELIGIBILITY")));
+                    row.put("eligibilityFields", parseEligibilityFields(rs.getString("ELIGIBILITY")));
                     row.put("formData", parseJsonObject(rs.getString("FORM_DATA")));
                     row.put("createdDate", rs.getObject("CREATED_DATE"));
                     row.put("updatedDate", rs.getObject("UPDATED_DATE"));
@@ -123,14 +124,17 @@ public class FeatureConfigService {
         if (key == null || key.trim().isEmpty()) {
             throw new IllegalArgumentException("key is required");
         }
-        boolean flat = "FORM_DATA".equalsIgnoreCase(field);
+        boolean flatForm = "FORM_DATA".equalsIgnoreCase(field);
+        boolean flat = flatForm || "ELIGIBILITY_FIELDS".equalsIgnoreCase(field);
         if (!flat && ruleIndex < 0) {
             throw new IllegalArgumentException("ruleIndex is required for ELIGIBILITY updates");
         }
 
         JsonNode parsedValue = parseJsonValue(value);
 
-        String column = "ELIGIBILITY";
+        // ELIGIBILITY_FIELDS writes a top-level setting on the ELIGIBILITY column;
+        // ELIGIBILITY writes one key of one rule; FORM_DATA writes one key of FORM_DATA.
+        String column = flatForm ? "FORM_DATA" : "ELIGIBILITY";
         try (Connection con = dbUtil.getConnectionForDatabase(database)) {
             String currentJson;
             try (PreparedStatement ps = con.prepareStatement("SELECT ELIGIBILITY, FORM_DATA FROM app_feature_config WHERE ID = ?")) {
@@ -139,7 +143,7 @@ public class FeatureConfigService {
                     if (!rs.next()) {
                         throw new IllegalArgumentException("No app_feature_config row with ID " + rowId + " in " + database);
                     }
-                    currentJson = flat ? rs.getString("FORM_DATA") : rs.getString("ELIGIBILITY");
+                    currentJson = flatForm ? rs.getString("FORM_DATA") : rs.getString("ELIGIBILITY");
                 }
             }
 
@@ -153,21 +157,25 @@ public class FeatureConfigService {
                 throw new RuntimeException("Empty JSON in " + column + " for row " + rowId);
             }
 
+            JsonNode target;
             if (flat) {
                 if (!(root instanceof ObjectNode)) {
-                    throw new RuntimeException("FORM_DATA is not a JSON object for row " + rowId);
+                    throw new RuntimeException(column + " is not a JSON object for row " + rowId);
                 }
-                ((ObjectNode) root).set(key, parsedValue);
+                target = root;
             } else {
-                if (!root.isArray()) {
-                    throw new RuntimeException("ELIGIBILITY is not a JSON array for row " + rowId);
+                String rk = root.isArray() ? null : rulesKey(root);
+                JsonNode rules = root.isArray() ? root : (rk == null ? null : root.get(rk));
+                if (rules == null || !rules.isArray()) {
+                    throw new RuntimeException("ELIGIBILITY has no rules array for row " + rowId);
                 }
-                JsonNode rule = root.get(ruleIndex);
+                JsonNode rule = rules.get(ruleIndex);
                 if (rule == null || !(rule instanceof ObjectNode)) {
                     throw new IllegalArgumentException("No rule at index " + ruleIndex + " in " + database);
                 }
-                ((ObjectNode) rule).set(key, parsedValue);
+                target = rule;
             }
+            ((ObjectNode) target).set(key, parsedValue);
 
             String newJson = objectMapper.writeValueAsString(root);
             try (PreparedStatement ps = con.prepareStatement("UPDATE app_feature_config SET " + column + " = ? WHERE ID = ?")) {
@@ -186,18 +194,68 @@ public class FeatureConfigService {
 
     /* ------------- helpers ------------- */
 
+    /**
+     * ELIGIBILITY has two shapes in the wild:
+     *  - a bare JSON array of rules (complaintmanagement), or
+     *  - a JSON object whose top-level keys are settings, one of which is an
+     *    array of rule objects - {@code concern_configs} (beejapuri TYPE 1),
+     *    {@code flows} (beejapuri TYPE 2).
+     *
+     * The rules array is located by shape rather than by name, so a per-type
+     * rules key needs no change here.
+     */
+    private static String rulesKey(JsonNode root) {
+        if (root == null || !root.isObject()) return null;
+        Iterator<Map.Entry<String, JsonNode>> fields = root.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fields.next();
+            JsonNode v = entry.getValue();
+            if (v.isArray() && v.size() > 0 && v.get(0).isObject()) return entry.getKey();
+        }
+        return null;
+    }
+
     private List<Map<String, Object>> parseJsonArray(String json) throws Exception {
         List<Map<String, Object>> list = new ArrayList<>();
         if (json == null || json.trim().isEmpty()) {
             return list;
         }
         JsonNode node = objectMapper.readTree(json);
-        if (node.isArray()) {
-            for (JsonNode el : node) {
+        JsonNode rules = node;
+        if (node.isObject()) {
+            String rk = rulesKey(node);
+            rules = rk == null ? null : node.get(rk);
+        }
+        if (rules != null && rules.isArray()) {
+            for (JsonNode el : rules) {
                 list.add(objectMapper.convertValue(el, LinkedHashMap.class));
             }
         }
         return list;
+    }
+
+    /**
+     * The top-level ELIGIBILITY settings that are not the rules array: scalars,
+     * arrays of scalars and nested objects (frequency, default_flow, ...).
+     * Rendered by the UI as their own editable key/value table.
+     */
+    private Map<String, Object> parseEligibilityFields(String json) throws Exception {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        if (json == null || json.trim().isEmpty()) {
+            return fields;
+        }
+        JsonNode node = objectMapper.readTree(json);
+        if (!node.isObject()) {
+            return fields;
+        }
+        String rk = rulesKey(node);
+        Iterator<String> names = node.fieldNames();
+        while (names.hasNext()) {
+            String k = names.next();
+            if (k.equals(rk)) continue;
+            fields.put(k, objectMapper.convertValue(node.get(k), Object.class));
+        }
+        return fields;
     }
 
     private Map<String, Object> parseJsonObject(String json) throws Exception {

@@ -3211,6 +3211,9 @@
                 for (const row of (db.rows || [])) {
                     const hiddenKey = db.database + '|' + row.id;
                     const isHidden = fcHiddenRows.has(hiddenKey);
+                    const rules = row.eligibility || [];
+                    const fields = row.eligibilityFields || {};
+                    const fieldKeys = Object.keys(fields);
                     html += `<div class="card" style="margin:10px 0; padding:12px; background:${isHidden?'#f1f5f9':'#f8fafc'};${isHidden?'opacity:.75':''}">
                         <div style="font-weight:600; margin-bottom:8px;">Row #${row.id} (TYPE ${row.type}, ENABLED ${row.enabled})
                             ${isHidden ? `<span style="color:#94a3b8; font-size:12px;">&mdash; hidden</span>` : ''}
@@ -3224,8 +3227,7 @@
                             <tbody>`;
 
                     if (!isHidden) {
-                        const rules = row.eligibility || [];
-                        if (rules.length === 0) {
+                        if (rules.length === 0 && fieldKeys.length === 0) {
                             html += `<tr><td colspan="4" style="color:#667;">No ELIGIBILITY rules</td></tr>`;
                         }
                         rules.forEach((rule, ri) => {
@@ -3247,16 +3249,11 @@
                     } else {
                         html += `</tbody></table>`;
                     }
+                    if (fieldKeys.length) {
+                        html += fcFlatObjectRows(db.database, row.id, fields, 'ELIGIBILITY_FIELDS');
+                    }
                     if (row.formData && Object.keys(row.formData).length) {
-                        html += `<div class="subtitle" style="margin-top:8px;">FORM_DATA</div><table class="apitable" style="width:100%;"><tbody>`;
-                        for (const k of Object.keys(row.formData)) {
-                            html += `<tr>
-                                <td><code>${k}</code></td>
-                                <td><input class="fc-rule-value" data-fc-value="${k}" data-fc-meta="${fcKey(db.database, row.id, 'FORM_DATA', -1, k)}" data-fc-original="${escapeHtml(JSON.stringify(row.formData[k]))}" oninput="fcMarkDirty(this)" value="${escapeHtml(JSON.stringify(row.formData[k]))}" style="width:100%;"></td>
-                                <td><button class="btn btn-primary btn-sm" onclick="updateFeatureConfigKey('${db.database}',${row.id},'FORM_DATA',-1,'${k}',this)">Save</button></td>
-                            </tr>`;
-                        }
-                        html += `</tbody></table>`;
+                        html += fcFlatObjectRows(db.database, row.id, row.formData, 'FORM_DATA');
                     }
                     html += `</div>`;
                 }
@@ -3323,6 +3320,21 @@
                 if (row) row.classList.add('fc-dirty');
             });
             fcRefreshDirtyCount();
+        }
+
+        /* Renders a flat JSON object (FORM_DATA, or the top-level ELIGIBILITY settings
+           that are not the rules array) as one editable row per key. */
+        function fcFlatObjectRows(database, rowId, obj, field) {
+            let out = `<div class="subtitle" style="margin-top:8px;">${field}</div><table class="apitable" style="width:100%;"><tbody>`;
+            for (const k of Object.keys(obj)) {
+                const v = escapeHtml(JSON.stringify(obj[k]));
+                out += `<tr>
+                    <td><code>${k}</code></td>
+                    <td><input class="fc-rule-value" data-fc-value="${k}" data-fc-meta="${fcKey(database, rowId, field, -1, k)}" data-fc-original="${v}" oninput="fcMarkDirty(this)" value="${v}" style="width:100%;"></td>
+                    <td><button class="btn btn-primary btn-sm" onclick="updateFeatureConfigKey('${database}',${rowId},'${field}',-1,'${k}',this)">Save</button></td>
+                </tr>`;
+            }
+            return out + `</tbody></table>`;
         }
 
         async function refetchFeatureConfig(databases) {
