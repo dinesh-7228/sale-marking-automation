@@ -56,8 +56,13 @@ public class PaymentApiClient {
             throw new RuntimeException(step + " failed with status " + response.getStatusCode()
                     + ": " + response.getBody().asString());
         }
+        String body = response.getBody().asString();
+        // juspay/offers answers 200 with a zero-byte body when no offer applies.
+        if (body == null || body.trim().isEmpty()) {
+            return objectMapper.createObjectNode();
+        }
         try {
-            return objectMapper.readTree(response.getBody().asString());
+            return objectMapper.readTree(body);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new RuntimeException(step + " returned invalid JSON: " + e.getMessage(), e);
         }
@@ -81,18 +86,34 @@ public class PaymentApiClient {
 
     /** API-3: Fetch available payment methods (e.g. NB-DUMMY BANK). configId usually 5. */
     public JsonNode getPaymentMethods(String customerAuth, String configId) {
+        return getPaymentMethods(customerAuth, configId, false);
+    }
+
+    /**
+     * @param mandateEnabled the AutoPay series (autopay.md API-7) sends {@code true};
+     *                        the Recharge-Once series sends {@code false}.
+     */
+    public JsonNode getPaymentMethods(String customerAuth, String configId, boolean mandateEnabled) {
         Response response = request(customerAuth)
                 .contentType(ContentType.JSON)
-                .body("{\"mandate_enabled\":false}")
+                .body("{\"mandate_enabled\":" + mandateEnabled + "}")
                 .post(getBaseUrl() + "/api/v2/customer/paymentMethods2/" + configId + "?last_update=");
         return parse(response, "paymentMethods2/" + configId);
     }
 
     /** API-4: Fetch saved cards + recent payment methods for a customer and payment source. */
     public JsonNode getSavedCardAndRecentPayments(String customerAuth, String paymentSource) {
+        return getSavedCardAndRecentPayments(customerAuth, paymentSource, false);
+    }
+
+    /**
+     * @param mandateEnabled the AutoPay series (autopay.md API-6) sends {@code true};
+     *                        the Recharge-Once series sends {@code false}.
+     */
+    public JsonNode getSavedCardAndRecentPayments(String customerAuth, String paymentSource, boolean mandateEnabled) {
         Response response = request(customerAuth)
                 .contentType(ContentType.JSON)
-                .body("{\"payment_source\":\"" + paymentSource + "\",\"mandate_enabled\":false}")
+                .body("{\"payment_source\":\"" + paymentSource + "\",\"mandate_enabled\":" + mandateEnabled + "}")
                 .post(getBaseUrl() + "/api/v2/customer/getSavedCardAndRecentPaymentsForCustomer");
         return parse(response, "getSavedCardAndRecentPaymentsForCustomer");
     }
@@ -126,32 +147,66 @@ public class PaymentApiClient {
 
     /** NEW: Apply a recharge offer by offer id (offers/recharge/apply). */
     public JsonNode applyRechargeOffer(String customerAuth, String rechargeAmount, String couponCode, String offerId) {
-        String body = "{\"recharge_amount\":\"" + rechargeAmount + "\",\"coupon_code\":\"" + couponCode
-                + "\",\"is_fomo\":\"false\",\"offer_id\":\"" + offerId + "\"}";
         Response response = request(customerAuth)
                 .contentType(ContentType.JSON)
-                .body(body)
+                .body(rechargeApplyPayload(rechargeAmount, couponCode, offerId))
                 .post(getBaseUrl() + "/api/offers/recharge/apply");
         return parse(response, "offers/recharge/apply");
     }
 
     /**
-     * API-8 (AutoPay series): Fetch the smart-plan AutoPay offers for a customer.
-     * <p>The AutoPay series reuses the same payment context as Recharge-Once: the
-     * saved-card / recent-payments fetch already ran with {@code payment_source="2"}
-     * (see DEFAULT_PAYMENT_SOURCE in PaymentService), so this endpoint just sends the
-     * selected {@code autopay_id} (plan id) plus the recharge amount.</p>
-     *
-     * @param customerAuth   customer bearer token
-     * @param autopayId      the selected autopay config id (e.g. the smart-plan plan id)
-     * @param rechargeAmount the amount to be recharged on the plan
+     * The exact offers/recharge/apply body. Exposed so the dry-run preview shows
+     * byte-for-byte what {@link #applyRechargeOffer} would send.
      */
-    public JsonNode getAutopayOffers(String customerAuth, String autopayId, String rechargeAmount) {
-        String body = "{\"autopay_id\":\"" + autopayId + "\",\"recharge_amount\":\"" + rechargeAmount + "\"}";
+    public String rechargeApplyPayload(String rechargeAmount, String couponCode, String offerId) {
+        return "{\"recharge_amount\":\"" + rechargeAmount + "\",\"coupon_code\":\"" + couponCode
+                + "\",\"is_fomo\":\"false\",\"offer_id\":\"" + offerId + "\"}";
+    }
+
+    /**
+     * The shared AutoPay payload. The doc's generateTransaction body is this same
+     * payload plus {@code payment_method}, so both endpoints build it here.
+     *
+     * @param paymentMethod when null the field is omitted (getAmountsAndCashBack).
+     */
+    public String autopayPayload(String amount, String autopayId, String setupSource,
+                                 String mandateWalletAmount, String paymentSource, String paymentMethod) {        String method = paymentMethod == null ? "" : ",\"payment_method\":\"" + paymentMethod + "\"";
+        return "{\"amount\":\"" + amount + "\",\"autopay_id\":\"" + autopayId + "\",\"autopay_new_flow\":false,"
+                + "\"autopay_setup_source\":\"" + setupSource + "\",\"is_fomo\":false,\"is_updated\":\"true\","
+                + "\"mandate_amount\":\"0.0\",\"mandate_duration\":0,\"mandate_enabled\":true,"
+                + "\"mandate_wallet_amount\":\"" + mandateWalletAmount + "\"" + method
+                + ",\"payment_source\":\"" + paymentSource + "\"}";
+    }
+
+    /**
+     * autopay.md API-8: resolve the payable amount and its cashback for the AutoPay setup.
+     *
+     * @param mandateWalletAmount the wallet threshold, from autopay_customers.WALLET_AMOUNT
+     */
+    public JsonNode getAmountsAndCashBack(String customerAuth, String amount, String autopayId,
+                                          String setupSource, String mandateWalletAmount, String paymentSource) {
         Response response = request(customerAuth)
                 .contentType(ContentType.JSON)
-                .body(body)
-                .post(getBaseUrl() + "/api/v2/customer/wallet/autopay_offers");
-        return parse(response, "wallet/autopay_offers");
+                .body(autopayPayload(amount, autopayId, setupSource, mandateWalletAmount, paymentSource, null))
+                .post(getBaseUrl() + "/api/v2/customer/getAmountsAndCashBack");
+        return parse(response, "getAmountsAndCashBack");
+    }
+
+    /**
+     * autopay.md API-9: create the AutoPay setup transaction. Returns the order id
+     * that autopay.md API-10 polls.
+     *
+     * <p>Kept separate from {@link #generateTransaction} on purpose: the Recharge-Once
+     * body carries {@code offer_id}/{@code customer_offer_id}, this one carries
+     * {@code autopay_id}/{@code mandate_wallet_amount}. They share an endpoint, not a payload.</p>
+     */
+    public JsonNode generateAutopayTransaction(String customerAuth, String amount, String autopayId,
+                                               String setupSource, String mandateWalletAmount,
+                                               String paymentMethod, String paymentSource) {
+        Response response = request(customerAuth)
+                .contentType(ContentType.JSON)
+                .body(autopayPayload(amount, autopayId, setupSource, mandateWalletAmount, paymentSource, paymentMethod))
+                .post(getBaseUrl() + "/api/v2/customer/generateTransaction/2");
+        return parse(response, "generateTransaction/2 (autopay)");
     }
 }

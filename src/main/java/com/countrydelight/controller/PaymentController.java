@@ -145,6 +145,41 @@ public class PaymentController {
         }
     }
 
+    /**
+     * Runs the autopay.md 10-step AutoPay setup series for a customer.
+     *
+     * <p>{@code dry_run} defaults to true: steps 4 and 9 are previewed, not sent, and
+     * the wallet is not touched. Set it to false to actually apply the offer and
+     * generate the transaction.</p>
+     */
+    @PostMapping("/autopay-flow")
+    public ResponseEntity<?> autopayFlow(@RequestBody(required = false) Map<String, Object> request) {
+        try {
+            String phone = request == null ? null : String.valueOf(request.get("phone"));
+            String configId = request == null ? null : String.valueOf(request.get("config_id"));
+            String amount = request == null ? null : String.valueOf(request.get("amount"));
+            String orderId = request == null ? null : String.valueOf(request.get("order_id"));
+            boolean dryRun = request == null
+                    || request.get("dry_run") == null
+                    || Boolean.parseBoolean(String.valueOf(request.get("dry_run")));
+
+            Map<String, Object> data = paymentService.autopayRechargeFlow(phone, configId, amount, dryRun, orderId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", data);
+            response.put("message", dryRun
+                    ? "✓ Dry run complete — steps 4 and 9 were previewed, not sent"
+                    : "✓ AutoPay flow complete");
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(badRequest(e.getMessage()));
+        } catch (Exception e) {
+            System.out.println("❌ AutoPay flow error: " + e.getMessage());
+            return ResponseEntity.ok(error("AutoPay flow failed: " + e.getMessage()));
+        }
+    }
+
     private Map<String, Object> badRequest(String message) {
         Map<String, Object> response = new HashMap<>();
         response.put("success", false);

@@ -676,6 +676,17 @@
                                 <div id="payAutopayList" style="max-height:260px; overflow-y:auto; border:1px solid #e0e7ef; border-radius:8px; padding:6px;"></div>
                             </div>
                             <div style="font-size:11px; color:#94a3b8;" id="payAutopayHint">SELECT id, plan_name, smart_plan, amount FROM autopay_config WHERE smart_plan IN (filter)</div>
+                            <div class="form-group" style="margin-top:10px;">
+                                <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                                    <input type="checkbox" id="payAutopayDryRun" checked>
+                                    Dry run — preview steps 4 &amp; 9, write nothing
+                                </label>
+                                <div style="font-size:11px; color:#94a3b8;">Unchecking applies the offer and generates a real transaction.</div>
+                            </div>
+                            <div class="form-group">
+                                <label for="payAutopayOrderId">Order ID to poll (optional)</label>
+                                <input type="text" id="payAutopayOrderId" placeholder="e.g. JP36936900001790664449766">
+                            </div>
                         </div>
 
                         <div style="margin-top:10px;">
@@ -1073,6 +1084,10 @@
             document.getElementById('payStatusInput').value = '';
             document.getElementById('paySmartPlanFilter').value = '';
             document.getElementById('payAutopaySearch').value = '';
+            const dryRunBox = document.getElementById('payAutopayDryRun');
+            if (dryRunBox) dryRunBox.checked = true;
+            const orderIdBox = document.getElementById('payAutopayOrderId');
+            if (orderIdBox) orderIdBox.value = '';
             payAutopayConfigs = [];
             paySelectedConfig = null;
             payAppliedRechargeOffer = null;
@@ -1222,9 +1237,81 @@
                 }
                 return;
             }
-            if (action === 'AUTOPAY' && !paySelectedConfig) { result.innerHTML = '<div class="alert alert-error">Select an AutoPay config.</div>'; return; }
-            result.innerHTML = `<div class="alert alert-info">Ready: phone=<code>${phone}</code> action=<code>${action}</code>${action==='AUTOPAY' ? ` config=<code>#${paySelectedConfig}</code>` : ''}<br>
-                <span style="font-size:12px;">AutoPay setup flow not part of the payment.md recharge series.</span></div>`;
+            if (action === 'AUTOPAY') {
+                if (!paySelectedConfig) { result.innerHTML = '<div class="alert alert-error">Select an AutoPay config.</div>'; return; }
+                const dryRun = document.getElementById('payAutopayDryRun').checked;
+                if (!dryRun && !confirm(`LIVE run for ${phone}: this applies the offer and creates a real AutoPay transaction. Continue?`)) return;
+                showLoading(dryRun ? `Previewing AutoPay flow for ${phone} …` : `Running AutoPay flow for ${phone} …`);
+                try {
+                    const resp = await fetch(PAY_API + '/autopay-flow', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            phone: phone,
+                            config_id: String(paySelectedConfig),
+                            amount: amount,
+                            dry_run: dryRun,
+                            order_id: document.getElementById('payAutopayOrderId').value.trim()
+                        })
+                    });
+                    const data = await resp.json();
+                    hideLoading();
+                    renderAutopayFlowResult(data);
+                } catch (e) {
+                    hideLoading();
+                    result.innerHTML = '<div class="alert alert-error">AutoPay flow failed: ' + escapeHtml(e.message) + '</div>';
+                }
+                return;
+            }
+        }
+
+        /* Renders the autopay.md 10-step trace plus the before/after autopay_customers row. */
+        function renderAutopayFlowResult(data) {
+            const result = document.getElementById('payResult');
+            if (!data.success) { result.innerHTML = '<div class="alert alert-error">' + escapeHtml(data.message || 'AutoPay flow failed') + '</div>'; return; }
+            const d = data.data || {};
+            const dryRun = d.dry_run !== false;
+
+            let html = '<div style="padding:14px; border-radius:10px; border:1px solid #e0e7ef; background:#f8fafc; font-size:14px;">';
+            html += `<div style="font-size:16px; font-weight:700; margin-bottom:10px;">${dryRun ? '👀 AutoPay dry run' : '✅ AutoPay flow'} · customer ${escapeHtml(d.phone || '')} · autopay_id <code>${escapeHtml(String(d.autopay_id || ''))}</code></div>`;
+            html += `<div style="font-size:12px; color:#64748b; margin-bottom:10px;">amount ₹${escapeHtml(String(d.amount || ''))} · payment_method ${escapeHtml(String(d.payment_method || ''))} · cashback ₹${escapeHtml(String(d.cashback || 0))}</div>`;
+
+            for (const s of (d.steps || [])) {
+                const skipped = String(s.status).toLowerCase().indexOf('skip') === 0;
+                const detail = typeof s.detail === 'string' ? escapeHtml(s.detail) : '<pre style="margin:4px 0 0; font-size:11px; white-space:pre-wrap; word-break:break-all;">' + escapeHtml(JSON.stringify(s.detail)) + '</pre>';
+                html += `<div style="padding:8px 0; border-bottom:1px dashed #e2e8f0;">
+                    <div style="display:flex; justify-content:space-between; gap:10px;">
+                        <span style="font-size:13px;"><strong>${s.step}.</strong> <code style="font-size:12px;">${escapeHtml(s.endpoint)}</code></span>
+                        <span style="font-size:12px; font-weight:700; color:${skipped ? '#b45309' : '#059669'};">${escapeHtml(String(s.status))}</span>
+                    </div>
+                    <div style="font-size:12px; color:#475569; margin-top:2px;">${detail}</div>
+                </div>`;
+            }
+            html += '</div>';
+
+            html += autopayCustomerRow('Before', d.autopay_customer_before, '#64748b');
+            html += autopayCustomerRow('After', d.autopay_customer_after, '#0f172a');
+
+            if (d.wallet_credit) {
+                const w = d.wallet_credit;
+                html += `<div style="margin-top:10px; padding:10px; border-radius:8px; background:#ecfdf5; border:1px solid #a7f3d0; font-size:13px;">
+                    💰 Wallet credited: ₹${w.old_wallet_balance} → <strong>₹${w.new_wallet_balance}</strong>
+                    (amount ₹${w.credited}${Number(w.cashback_credited) ? ', cashback ₹' + w.cashback_credited : ''}) · txn <code>${escapeHtml(String(w.transaction_id || ''))}</code>
+                </div>`;
+            }
+            result.innerHTML = html;
+
+            function autopayCustomerRow(label, row, color) {
+                if (!row || Object.keys(row).length === 0) {
+                    return `<div style="margin-top:10px; font-size:12px; color:${color};">autopay_customers <strong>${label}</strong>: none</div>`;
+                }
+                return `<div style="margin-top:10px; font-size:12px; color:${color};">
+                    autopay_customers <strong>${label}</strong>: id=${escapeHtml(String(row.id))} config=${escapeHtml(String(row.autopay_config))}
+                    wallet_amount=₹${escapeHtml(String(row.wallet_amount))} recharge=₹${escapeHtml(String(row.recharge_amount))}
+                    total_recharge=₹${escapeHtml(String(row.total_recharge_amount))} active=${escapeHtml(String(row.active))}
+                    setup_txn=<code>${escapeHtml(String(row.setup_transaction_id || ''))}</code>
+                </div>`;
+            }
         }
 
         function renderRechargeResult(data) {

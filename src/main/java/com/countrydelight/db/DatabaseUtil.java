@@ -413,6 +413,44 @@ private Connection getConnection() throws SQLException {
     }
 
     /**
+     * Read-only lookup of the customer's most recent {@code autopay_customers} row.
+     * Used to verify what the autopay.md flow actually wrote, and to source the
+     * {@code WALLET_AMOUNT} threshold that API-8/9 send as {@code mandate_wallet_amount}.
+     *
+     * @return the row, or an empty map when the customer has no AutoPay record yet
+     */
+    public Map<String, Object> getAutopayCustomer(int customerId) throws Exception {
+        String query = "SELECT ID, AUTOPAY_CONFIG, WALLET_AMOUNT, RECHARGE_AMOUNT, TOTAL_TRANSACTIONS, "
+                + "TOTAL_RECHARGE_AMOUNT, TOTAL_CASHBACK, ACTIVE, SCREEN, SETUP_TRANSACTION_ID, CREATED_DATE "
+                + "FROM autopay_customers WHERE CUSTOMER = ? ORDER BY ID DESC LIMIT 1";
+        Map<String, Object> row = new HashMap<>();
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setInt(1, customerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    row.put("id", rs.getLong("ID"));
+                    row.put("autopay_config", rs.getObject("AUTOPAY_CONFIG"));
+                    row.put("wallet_amount", rs.getObject("WALLET_AMOUNT"));
+                    row.put("recharge_amount", rs.getObject("RECHARGE_AMOUNT"));
+                    row.put("total_transactions", rs.getObject("TOTAL_TRANSACTIONS"));
+                    row.put("total_recharge_amount", rs.getObject("TOTAL_RECHARGE_AMOUNT"));
+                    row.put("total_cashback", rs.getObject("TOTAL_CASHBACK"));
+                    row.put("active", rs.getObject("ACTIVE"));
+                    row.put("screen", rs.getObject("SCREEN"));
+                    row.put("setup_transaction_id", rs.getObject("SETUP_TRANSACTION_ID"));
+                    row.put("created_date", rs.getObject("CREATED_DATE"));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to read autopay_customers for customer " + customerId
+                    + ": " + e.getMessage(), e);
+        }
+        return row;
+    }
+
+    /**
      * Updates a payment_requests row's PAYMENT_STATUS (and related fields) in
      * the active beejapuri database, keyed by the Juspay order/transaction id.
      * Used to record forced statuses (SUCCESS/PENDING/FAILED) when the real
