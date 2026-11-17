@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DoNotAskProjectManager">
+    <option name="idToDisplayName">
+      <map>
+        <entry key="Plugins Suggestion" value="Plugin suggestions available" />
+        <entry key="ide.updated.by.snap" value="IntelliJ IDEA and plugin updates" />
+      </map>
+    </option>
+  </component>
+</project>
