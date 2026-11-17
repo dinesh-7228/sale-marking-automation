@@ -809,6 +809,33 @@
                     </div>
                 </section>
 
+                <!-- ============ OTP CLEANER ============ -->
+                <section class="feature-panel" data-feature="otp-cleaner">
+                    <div class="card">
+                        <h2>OTP Cleaner</h2>
+                        <div class="subtitle">
+                            List and delete every <code>sign_up_otp</code> row for one customer mobile number.
+                        </div>
+
+                        <div class="form-group">
+                            <label for="otpMobile">Customer Mobile Number *</label>
+                            <input type="text" id="otpMobile" placeholder="e.g. 5248484848" maxlength="10">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Databases to clean</label>
+                            <div id="otpDbList" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:8px;"></div>
+                        </div>
+
+                        <div class="form-row">
+                            <button class="btn btn-secondary" onclick="fetchOtps()">Fetch OTPs</button>
+                            <button class="btn btn-danger" onclick="deleteOtps()">Delete All OTPs</button>
+                        </div>
+
+                        <div style="margin-top:16px;" id="otpResult"></div>
+                    </div>
+                </section>
+
                 <!-- ============ API COMPARATOR ============ -->
                 <section class="feature-panel" data-feature="api-comparator">
                     <div class="card">
@@ -932,6 +959,7 @@
             { id: 'test-cases',        label: 'Test Cases',        icon: '🧪', group: 'Main' },
             { id: 'open-defects',      label: 'Open Defects',      icon: '🐞', group: 'Main' },
             { id: 'complaint-cleanup', label: 'Complaint Clean Up', icon: '🧹', group: 'Complaints' },
+            { id: 'otp-cleaner',       label: 'OTP Cleaner',       icon: '🔑', group: 'Complaints' },
             { id: 'api-comparator',    label: 'API Comparator',    icon: '🔍', group: 'Comparator' },
             { id: 'feature-config',    label: 'Feature Config',    icon: '🧩', group: 'Complaints' },
             { id: 'payment',           label: 'Payment',           icon: '💳', group: 'Complaints' },
@@ -957,6 +985,7 @@
             'test-cases':   () => loadTestCasesPanel(),
             'open-defects': () => loadOpenDefectsPanel(),
             'complaint-cleanup': () => renderComplaintDbList(),
+            'otp-cleaner':      () => renderDbList('otpDbList'),
             'feature-config':   () => renderFeatureConfigDbList(),
             'payment':          () => renderPaymentPanel(),
             'autopay-customer-removal':    () => renderDbList('acrDbList'),
@@ -2905,17 +2934,140 @@
             resultEl.innerHTML = html;
         }
 
+        /* ================= OTP CLEANER ================= */
+        const OTP_API = '/api/otp';
+
+        function getOtpMobile() {
+            let digits = (document.getElementById('otpMobile').value || '').replace(/\D/g, '');
+            if (digits.length === 11 && digits.startsWith('0')) digits = digits.substring(1);
+            else if (digits.length === 12 && digits.startsWith('91')) digits = digits.substring(2);
+            if (!/^\d{10}$/.test(digits)) {
+                showAlert('Enter a valid 10 digit mobile number', 'error');
+                return null;
+            }
+            return digits;
+        }
+
+        async function fetchOtps() {
+            const mobile = getOtpMobile();
+            if (!mobile) return;
+            const databases = getSelectedRemovalDatabases('otpDbList');
+            if (databases.length === 0) { showAlert('Select at least one database', 'error'); return; }
+
+            const resultEl = document.getElementById('otpResult');
+            resultEl.innerHTML = '';
+            showLoading(`Fetching OTPs for ${mobile}...`);
+            try {
+                const response = await fetch(`${OTP_API}/fetch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobile: mobile, databases: databases })
+                });
+                const data = await response.json();
+                hideLoading();
+                if (data.success) {
+                    renderOtpFetchResult(data.data);
+                    showAlert('✅ OTPs fetched', 'success');
+                } else {
+                    showAlert(`Error: ${data.message}`, 'error');
+                    resultEl.innerHTML = `<div class="alert alert-error">${escapeHtml(data.message)}</div>`;
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+                resultEl.innerHTML = `<div class="alert alert-error">${escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        function renderOtpFetchResult(result) {
+            let total = 0;
+            const cards = result.results.map(dbRes => {
+                const rows = dbRes.rows || [];
+                total += rows.length;
+                if (dbRes.error) {
+                    return `<div class="card"><h2>${dbRes.database}</h2>
+                        <div class="alert alert-error">${escapeHtml(dbRes.error)}</div></div>`;
+                }
+                const columns = rows.length ? Object.keys(rows[0]) : [];
+                const head = columns.map(c => `<th>${c}</th>`).join('');
+                const body = rows.map(r => `<tr>${columns.map(col =>
+                    `<td>${r[col] == null ? '' : escapeHtml(r[col])}</td>`).join('')}</tr>`).join('');
+                return `<div class="card">
+                    <h2>${dbRes.database} <span class="env-badge ${dbRes.env === 'UAT' ? 'uat' : ''}">${dbRes.env}</span></h2>
+                    <div class="subtitle">OTPs found: ${rows.length}</div>
+                    ${rows.length ? `<div class="table-wrap"><table class="apitable"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`
+                                   : '<div class="subtitle">No OTPs found for this mobile</div>'}
+                </div>`;
+            }).join('');
+
+            document.getElementById('otpResult').innerHTML =
+                `<div class="card"><h2>OTPs for ${escapeHtml(result.mobile)}: <strong>${total}</strong></h2></div>` + cards;
+        }
+
+        async function deleteOtps() {
+            const mobile = getOtpMobile();
+            if (!mobile) return;
+            const databases = getSelectedRemovalDatabases('otpDbList');
+            if (databases.length === 0) { showAlert('Select at least one database', 'error'); return; }
+
+            if (!confirm(`Delete ALL OTPs for ${mobile} in ${databases.join(', ')}?\n\nThis cannot be undone.`)) return;
+
+            const resultEl = document.getElementById('otpResult');
+            resultEl.innerHTML = '';
+            showLoading(`Deleting OTPs for ${mobile}...`);
+            try {
+                const response = await fetch(`${OTP_API}/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobile: mobile, databases: databases })
+                });
+                const data = await response.json();
+                hideLoading();
+                if (data.success) {
+                    renderOtpDeleteResult(data.data);
+                    showAlert('✅ OTPs deleted', 'success');
+                } else {
+                    showAlert(`Error: ${data.message}`, 'error');
+                    resultEl.innerHTML = `<div class="alert alert-error">${escapeHtml(data.message)}</div>`;
+                }
+            } catch (error) {
+                hideLoading();
+                showAlert(`Error: ${error.message}`, 'error');
+                resultEl.innerHTML = `<div class="alert alert-error">${escapeHtml(error.message)}</div>`;
+            }
+        }
+
+        function renderOtpDeleteResult(result) {
+            const rows = result.results.map(dbRes => `
+                <tr>
+                    <td>${dbRes.database}</td>
+                    <td>${dbRes.env}</td>
+                    <td>${dbRes.deleted}</td>
+                    <td>${dbRes.error ? escapeHtml(dbRes.error) : 'Deleted'}</td>
+                </tr>`).join('');
+            document.getElementById('otpResult').innerHTML = `
+                <div class="card">
+                    <h2>Deleted ${result.totalDeleted} OTP(s) for ${escapeHtml(result.mobile)}</h2>
+                    <table class="apitable">
+                        <thead><tr><th>Database</th><th>Env</th><th>Deleted</th><th>Status</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>`;
+        }
+
         /* ================= AUTOPAY / MEMBERSHIP CUSTOMER REMOVAL ================= */
         const AUTO_MEMBERSHIP_DB_LIST = ['beejapuri_QA', 'beejapuri_UAT'];
 
         function renderDbList(containerId) {
             const container = document.getElementById(containerId);
             if (!container) return;
+            // Removal panels start with no database selected; OTP cleaner keeps its defaults.
+            const preselect = containerId !== 'acrDbList' && containerId !== 'mcrDbList';
             container.innerHTML = AUTO_MEMBERSHIP_DB_LIST.map(db => {
                 const isUat = db.endsWith('_UAT');
                 return `
                     <label class="db-check">
-                        <input type="checkbox" value="${db}" checked>
+                        <input type="checkbox" value="${db}" ${preselect ? 'checked' : ''}>
                         <span>${db}</span>
                         <span class="env-badge ${isUat ? 'uat' : ''}" style="font-size:10px; padding:2px 8px;">${isUat ? 'UAT' : 'QA'}</span>
                     </label>`;
@@ -3183,7 +3335,7 @@
             if (!container) return;
             container.innerHTML = FC_DATABASES.map(db => `
                 <label class="db-check">
-                    <input type="checkbox" value="${db.database}" checked>
+                    <input type="checkbox" value="${db.database}">
                     <span>${db.database}</span>
                     <span class="env-badge ${db.env==='UAT'?'uat':''}" style="font-size:10px; padding:2px 8px;">${db.env}</span>
                 </label>`).join('');

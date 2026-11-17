@@ -41,12 +41,12 @@ public class PaymentController {
     @PostMapping("/recharge")
     public ResponseEntity<?> recharge(@RequestBody(required = false) Map<String, Object> request) {
         try {
-            String phone = request == null ? null : String.valueOf(request.get("phone"));
-            String amount = request == null ? null : String.valueOf(request.get("amount"));
-            String configId = request == null || request.get("configId") == null ? null : String.valueOf(request.get("configId"));
-            String paymentStatus = request == null || request.get("paymentStatus") == null ? null : String.valueOf(request.get("paymentStatus"));
-            String offerId = request == null || request.get("offerId") == null ? null : String.valueOf(request.get("offerId"));
-            String customerOfferId = request == null || request.get("customerOfferId") == null ? null : String.valueOf(request.get("customerOfferId"));
+            String phone = str(request, "phone");
+            String amount = str(request, "amount");
+            String configId = str(request, "configId");
+            String paymentStatus = str(request, "paymentStatus");
+            String offerId = str(request, "offerId");
+            String customerOfferId = str(request, "customerOfferId");
 
             Map<String, Object> data = paymentService.rechargeOnce(phone, amount, configId, paymentStatus,
                     offerId, customerOfferId);
@@ -125,10 +125,10 @@ public class PaymentController {
     @PostMapping("/offers/recharge-apply")
     public ResponseEntity<?> applyRechargeOffer(@RequestBody(required = false) Map<String, Object> request) {
         try {
-            String phone = request == null ? null : String.valueOf(request.get("phone"));
-            String rechargeAmount = request == null ? null : String.valueOf(request.get("recharge_amount"));
-            String couponCode = request == null ? null : String.valueOf(request.get("coupon_code"));
-            String offerId = request == null ? null : String.valueOf(request.get("offer_id"));
+            String phone = str(request, "phone");
+            String rechargeAmount = str(request, "recharge_amount");
+            String couponCode = str(request, "coupon_code");
+            String offerId = str(request, "offer_id");
 
             Map<String, Object> data = paymentService.applyRechargeOffer(phone, rechargeAmount, couponCode, offerId);
 
@@ -155,10 +155,10 @@ public class PaymentController {
     @PostMapping("/autopay-flow")
     public ResponseEntity<?> autopayFlow(@RequestBody(required = false) Map<String, Object> request) {
         try {
-            String phone = request == null ? null : String.valueOf(request.get("phone"));
-            String configId = request == null ? null : String.valueOf(request.get("config_id"));
-            String amount = request == null ? null : String.valueOf(request.get("amount"));
-            String orderId = request == null ? null : String.valueOf(request.get("order_id"));
+            String phone = str(request, "phone");
+            String configId = str(request, "config_id");
+            String amount = str(request, "amount");
+            String orderId = str(request, "order_id");
             boolean dryRun = request == null
                     || request.get("dry_run") == null
                     || Boolean.parseBoolean(String.valueOf(request.get("dry_run")));
@@ -170,7 +170,9 @@ public class PaymentController {
             response.put("data", data);
             response.put("message", dryRun
                     ? "✓ Dry run complete — steps 4 and 9 were previewed, not sent"
-                    : "✓ AutoPay flow complete");
+                    : "⚠ AutoPay flow ran, but the mandate is NOT active yet — the Juspay "
+                    + "mandate cannot be completed server-side, so the transaction stays "
+                    + "PENDING and no autopay_customers row is created");
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(badRequest(e.getMessage()));
@@ -178,6 +180,17 @@ public class PaymentController {
             System.out.println("❌ AutoPay flow error: " + e.getMessage());
             return ResponseEntity.ok(error("AutoPay flow failed: " + e.getMessage()));
         }
+    }
+
+    /**
+     * Reads a request field as text. A missing key stays null — {@code String.valueOf(null)}
+     * would hand the service the literal string "null", which parses as an amount and
+     * blows up as a NumberFormatException instead of falling back to its documented default.
+     */
+    private String str(Map<String, Object> request, String key) {
+        if (request == null) return null;
+        Object value = request.get(key);
+        return value == null ? null : value.toString();
     }
 
     private Map<String, Object> badRequest(String message) {

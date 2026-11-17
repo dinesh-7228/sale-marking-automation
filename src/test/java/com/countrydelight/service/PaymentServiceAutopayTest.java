@@ -54,10 +54,13 @@ class PaymentServiceAutopayTest {
         when(db.getCustomerIdByPhone(PHONE)).thenReturn(customer);
         when(db.getCustomerToken(String.valueOf(CUSTOMER_ID))).thenReturn("token-abc");
 
+        // The customer's stored row points at a DIFFERENT config (338). Its wallet_amount
+        // must never become the mandate threshold — the selected config's own value wins.
         Map<String, Object> autopayRow = new HashMap<>();
-        autopayRow.put("wallet_amount", new BigDecimal("150.00"));
-        autopayRow.put("autopay_config", 497);
+        autopayRow.put("wallet_amount", new BigDecimal("100.00"));
+        autopayRow.put("autopay_config", 338);
         when(db.getAutopayCustomer(CUSTOMER_ID)).thenReturn(autopayRow);
+        when(db.getAutopayConfigWalletAmount("497")).thenReturn("150.00");
 
         when(api.getWalletScreen("token-abc"))
                 .thenReturn(node("{\"wallet_balance\":3853.00,\"is_autopay_enabled\":true}"));
@@ -66,8 +69,9 @@ class PaymentServiceAutopayTest {
                 "{\"amount_placeholder\":1000.0,\"details\":[{\"offer_id\":177,\"coupon_code\":\"WELCOME10\"}]}"));
         when(api.getSavedCardAndRecentPayments(eq("token-abc"), eq("2"), eq(true)))
                 .thenReturn(node("{\"error\":false}"));
+        // paymentMethods2 returns each group's methods under "list", not "payment_options".
         when(api.getPaymentMethods("token-abc", "5", true)).thenReturn(node(
-                "{\"data\":{\"payment_option_dtos\":[{\"payment_options\":[{\"type\":\"UPI_APP\"},{\"type\":\"CARD\"}]}]}}"));
+                "{\"data\":{\"payment_option_dtos\":[{\"list\":[{\"type\":\"UPI_APP\"},{\"type\":\"CARD\"}]}]}}"));
         when(api.getAmountsAndCashBack(eq("token-abc"), anyString(), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(node("{\"data\":{\"amount\":1000.0,\"cashback\":25.0,\"total_amount\":1025.0}}"));
         when(api.getTransactionStatus("token-abc", ORDER_ID)).thenReturn(node("{\"status\":\"SUCCESS\"}"));
@@ -123,6 +127,52 @@ class PaymentServiceAutopayTest {
         } catch (IllegalArgumentException expected) {
             assertEquals("Enter a valid 10-digit mobile number", expected.getMessage());
         }
+    }
+
+    /**
+     * The mandate threshold belongs to the selected autopay_config. Taking it from the
+     * customer's stored autopay_customers row instead made setup fail against the CMS
+     * with "Invalid Wallet amount" whenever the two configs differed.
+     */
+    @Test
+    void mandateThresholdComesFromTheConfigNotTheStaleCustomerRow() throws Exception {
+        when(api.generateAutopayTransaction(anyString(), anyString(), anyString(), anyString(),
+                anyString(), anyString(), anyString()))
+                .thenReturn(node("{\"data\":{\"order_id\":\"" + ORDER_ID + "\"}}"));
+
+        service.autopayRechargeFlow(PHONE, "497", "", false, ORDER_ID);
+
+        // 150.00 comes from autopay_config 497 — not the 100.00 on the customer's
+        // stored row, which belongs to config 338.
+        verify(api).generateAutopayTransaction("token-abc", "1000.0", "497", "menu_screen", "150.00", "CARD", "2");
+    }
+
+    @Test
+    void rejectsAConfigWithoutAWalletThreshold() throws Exception {
+        when(db.getAutopayConfigWalletAmount("497")).thenReturn(null);
+
+        try {
+            service.autopayRechargeFlow(PHONE, "497", "", true, ORDER_ID);
+            throw new AssertionError("expected IllegalArgumentException");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("497"), expected.getMessage());
+        }
+    }
+
+    /** paymentMethods2 keeps each group's methods under "list"; "payment_options" never existed. */
+    @Test
+    void paymentMethodLookupReadsTheListKeyTheApiActuallyReturns() throws Exception {
+        JsonNode json = node("{\"data\":{\"payment_option_dtos\":["
+                + "{\"title\":\"UPI\",\"list\":[{\"type\":\"UPI_APP\"}]},"
+                + "{\"title\":\"Credit/ Debit Card\",\"list\":[{\"type\":\"CARD\"}]}]}}");
+
+        assertEquals("CARD", service.extractAutopayPaymentMethod(json));
+    }
+
+    @Test
+    void paymentMethodLookupFallsBackToCardWhenTheListIsEmpty() throws Exception {
+        assertEquals("CARD", service.extractAutopayPaymentMethod(
+                node("{\"data\":{\"payment_option_dtos\":[{\"list\":[]}]}}")));
     }
 
     private JsonNode node(String json) throws Exception {

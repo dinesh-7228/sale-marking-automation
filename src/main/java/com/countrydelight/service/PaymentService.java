@@ -439,9 +439,10 @@ public class PaymentService {
         record(steps, 7, "POST /api/v2/customer/paymentMethods2/" + DEFAULT_CONFIG_ID, "ok",
                 "payment_method=" + paymentMethod);
 
-        // API-8 — resolves amount + cashback. The mandate threshold comes from the
-        // customer's stored autopay row, not from the request.
-        String mandateWalletAmount = String.valueOf(before.getOrDefault("wallet_amount", "0.00"));
+        // API-8 — resolves amount + cashback. The mandate threshold is the selected
+        // config's own WALLET_AMOUNT; the customer's stored row may point at another
+        // config, and sending that value makes the CMS reject the setup.
+        String mandateWalletAmount = resolveMandateWalletAmount(autopayId, before);
         JsonNode amounts = paymentApiClient.getAmountsAndCashBack(customerToken, rechargeAmount, autopayId,
                 AUTOPAY_SETUP_SOURCE, mandateWalletAmount, DEFAULT_PAYMENT_SOURCE);
         String cashback = String.valueOf(amounts.path("data").path("cashback").asDouble(0));
@@ -518,13 +519,42 @@ public class PaymentService {
     }
 
     /**
+     * The {@code mandate_wallet_amount} sent on API-8/9.
+     *
+     * <p>It is the selected {@code autopay_config}'s own {@code WALLET_AMOUNT}. It must
+     * NOT come from the customer's last {@code autopay_customers} row: that row can
+     * belong to a different config, and a mismatched threshold is what makes the CMS
+     * answer {@code "Invalid Wallet amount"}.</p>
+     *
+     * @param configId the selected autopay_config id
+     * @param before   the customer's stored autopay row, used only for logging
+     * @return the threshold as plain decimal text (e.g. "150.00")
+     */
+    String resolveMandateWalletAmount(String configId, Map<String, Object> before) throws Exception {
+        String amount = dbUtil.getAutopayConfigWalletAmount(configId);
+        if (amount == null || amount.trim().isEmpty()
+                || new java.math.BigDecimal(amount).compareTo(java.math.BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("AutoPay config " + configId
+                    + " has no WALLET_AMOUNT threshold; cannot set up the mandate");
+        }
+        System.out.println("✓ mandate_wallet_amount=" + amount + " from autopay_config " + configId
+                + " (customer row was config " + before.get("autopay_config")
+                + ", wallet_amount " + before.get("wallet_amount") + ")");
+        return amount.trim();
+    }
+
+    /**
      * autopay.md API-9 sends a mandate method from the API-7 list (CARD / UPI_APP /
      * UPI_QR) — not the Recharge-Once "NB-DUMMY BANK". CARD is what the recorded run used.
+     *
+     * <p>Each group holds its methods under {@code list}; there is no {@code payment_options}
+     * key in the response, so reading that key silently yields nothing and every run
+     * fell back to the hardcoded CARD.</p>
      */
-    private String extractAutopayPaymentMethod(JsonNode paymentMethods) {
+    String extractAutopayPaymentMethod(JsonNode paymentMethods) {
         String fallback = "";
         for (JsonNode group : paymentMethods.path("data").path("payment_option_dtos")) {
-            for (JsonNode option : group.path("payment_options")) {
+            for (JsonNode option : group.path("list")) {
                 String type = option.path("type").asText("");
                 if ("CARD".equals(type)) {
                     return type;

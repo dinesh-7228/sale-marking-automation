@@ -413,9 +413,37 @@ private Connection getConnection() throws SQLException {
     }
 
     /**
+     * Reads the {@code WALLET_AMOUNT} threshold of a single {@code autopay_config}.
+     * This is the value API-8/9 must send as {@code mandate_wallet_amount} — it belongs
+     * to the selected config, not to whatever config the customer's last
+     * {@code autopay_customers} row happens to point at (the CMS rejects a mismatched
+     * value with "Invalid Wallet amount").
+     *
+     * @param configId the autopay_config id
+     * @return the threshold as plain decimal text (e.g. "150.00"), or null when the
+     *         config does not exist or has no threshold set
+     */
+    public String getAutopayConfigWalletAmount(String configId) throws Exception {
+        String query = "SELECT WALLET_AMOUNT FROM autopay_config WHERE ID = ?";
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(query)) {
+            ps.setLong(1, Long.parseLong(configId.trim()));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    java.math.BigDecimal amount = rs.getBigDecimal("WALLET_AMOUNT");
+                    return amount == null ? null : amount.toPlainString();
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to read autopay_config " + configId
+                    + " from " + getActiveDbName() + ": " + e.getMessage(), e);
+        }
+        return null;
+    }
+
+    /**
      * Read-only lookup of the customer's most recent {@code autopay_customers} row.
-     * Used to verify what the autopay.md flow actually wrote, and to source the
-     * {@code WALLET_AMOUNT} threshold that API-8/9 send as {@code mandate_wallet_amount}.
+     * Used to verify what the autopay.md flow actually wrote.
      *
      * @return the row, or an empty map when the customer has no AutoPay record yet
      */
