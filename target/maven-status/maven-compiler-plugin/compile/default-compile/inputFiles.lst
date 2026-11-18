@@ -9,6 +9,7 @@
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/controller/CustomerController.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/controller/PaymentController.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/config/WebConfig.java
+/home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/comparator/HarMatcher.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/controller/BaseCustomerRemovalController.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/controller/MembershipCustomerRemovalController.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/config/EnvironmentConfig.java
@@ -23,9 +24,13 @@
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/ProductService.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/controller/HealthController.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/MembershipCustomerRemovalService.java
+/home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/comparator/HistoryStore.java
+/home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/comparator/BulkValidator.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/OtpCleanerService.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/controller/RapidSaleMarkingController.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/model/ProductRequest.java
+/home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/comparator/ApiExecutor.java
+/home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/comparator/DiffEngine.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/RapidSaleMarkingService.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/AutopayCustomerRemovalService.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/api/MockApiClient.java
@@ -34,5 +39,6 @@
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/controller/ProductController.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/config/JwtAuthenticationManager.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/ComplaintService.java
+/home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/controller/ComparatorController.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/service/InteractiveWorkflowService.java
 /home/dinesh/Documents/sale-marking-automation/src/main/java/com/countrydelight/controller/SaleMarkingController.java

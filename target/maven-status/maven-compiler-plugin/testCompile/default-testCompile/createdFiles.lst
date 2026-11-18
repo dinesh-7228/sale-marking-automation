@@ -1,2 +1,4 @@
-com/countrydelight/config/AdminAccessFilterTest.class
 com/countrydelight/service/PaymentServiceAutopayTest.class
+com/countrydelight/service/comparator/BulkValidatorTest.class
+com/countrydelight/config/AdminAccessFilterTest.class
+com/countrydelight/service/comparator/DiffEngineTest.class

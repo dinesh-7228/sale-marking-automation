@@ -845,7 +845,7 @@
                             and download comparison reports.
                         </div>
                         <iframe id="apiComparatorFrame"
-                                src="http://localhost:5173"
+                                src="/comparator/index.html"
                                 title="API Comparator"
                                 style="width:100%; height:76vh; border:2px solid #e0e7ef; border-radius:10px; background:#fff;">
                         </iframe>
@@ -3061,11 +3061,13 @@
         function renderDbList(containerId) {
             const container = document.getElementById(containerId);
             if (!container) return;
+            // Removal panels start with no database selected; OTP cleaner keeps its defaults.
+            const preselect = containerId !== 'acrDbList' && containerId !== 'mcrDbList';
             container.innerHTML = AUTO_MEMBERSHIP_DB_LIST.map(db => {
                 const isUat = db.endsWith('_UAT');
                 return `
                     <label class="db-check">
-                        <input type="checkbox" value="${db}" checked>
+                        <input type="checkbox" value="${db}" ${preselect ? 'checked' : ''}>
                         <span>${db}</span>
                         <span class="env-badge ${isUat ? 'uat' : ''}" style="font-size:10px; padding:2px 8px;">${isUat ? 'UAT' : 'QA'}</span>
                     </label>`;
@@ -3333,7 +3335,7 @@
             if (!container) return;
             container.innerHTML = FC_DATABASES.map(db => `
                 <label class="db-check">
-                    <input type="checkbox" value="${db.database}" checked>
+                    <input type="checkbox" value="${db.database}">
                     <span>${db.database}</span>
                     <span class="env-badge ${db.env==='UAT'?'uat':''}" style="font-size:10px; padding:2px 8px;">${db.env}</span>
                 </label>`).join('');
